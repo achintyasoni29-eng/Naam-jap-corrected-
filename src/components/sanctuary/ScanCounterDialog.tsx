@@ -8,6 +8,7 @@ import {
   Check,
   ImageIcon,
   AlertCircle,
+  Loader2,
 } from 'lucide-react';
 import {
   Dialog,
@@ -17,12 +18,13 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { useNaamJapStore } from '@/lib/store';
+import Tesseract from 'tesseract.js';
 
 // ──────────────────────────────────────────────
 // Scan Physical Counter Dialog
 // ──────────────────────────────────────────────
 
-type ScanPhase = 'capture' | 'verify';
+type ScanPhase = 'capture' | 'processing' | 'verify';
 
 function ScanCounterDialog({
   open,
@@ -39,7 +41,6 @@ function ScanCounterDialog({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const addScannedCount = useNaamJapStore((s) => s.addScannedCount);
 
-  // Reset state when dialog opens/closes
   React.useEffect(() => {
     if (open) {
       setPhase('capture');
@@ -49,12 +50,33 @@ function ScanCounterDialog({
     }
   }, [open]);
 
-  // Clean up object URL on unmount to prevent memory leaks
   React.useEffect(() => {
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
+
+  const processImageWithAI = async (imageUrl: string) => {
+    setPhase('processing');
+    try {
+      // Run the local AI engine
+      const result = await Tesseract.recognize(imageUrl, 'eng', {
+        tessedit_char_whitelist: '0123456789', // Tell AI to only look for numbers
+      });
+      
+      const text = result.data.text;
+      const numbersOnly = text.replace(/[^0-9]/g, ''); // Strip out any weird symbols
+      
+      if (numbersOnly) {
+        setManualCount(numbersOnly);
+      } else {
+        setError("AI couldn't clearly see the numbers. Please enter them manually.");
+      }
+    } catch (err) {
+      setError("AI reading failed. Please enter the number manually.");
+    }
+    setPhase('verify');
+  };
 
   const handleFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -68,12 +90,12 @@ function ScanCounterDialog({
 
       setError(null);
 
-      // Create preview URL and move instantly to verification phase
       const url = URL.createObjectURL(file);
       setPreviewUrl(url);
-      setPhase('verify');
+      
+      // Send the image to the AI immediately
+      processImageWithAI(url);
 
-      // Reset file input so same file can be re-selected if needed
       e.target.value = '';
     },
     []
@@ -106,9 +128,9 @@ function ScanCounterDialog({
             Sync Physical Counter
           </DialogTitle>
           <DialogDescription className="text-on-surface-variant/60 text-sm">
-            {phase === 'capture' &&
-              'Take a photo of your physical tally counter to log your chants.'}
-            {phase === 'verify' && 'Enter the number shown on your counter.'}
+            {phase === 'capture' && 'Take a photo of your physical tally counter to log your chants.'}
+            {phase === 'processing' && 'AI is reading your photo...'}
+            {phase === 'verify' && 'Confirm the number the AI detected.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -123,7 +145,6 @@ function ScanCounterDialog({
               transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
               className="px-6 pb-6"
             >
-              {/* Hidden file input that triggers the mobile camera */}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -134,7 +155,6 @@ function ScanCounterDialog({
                 aria-label="Capture photo of physical counter"
               />
 
-              {/* Camera Trigger Button */}
               <div className="relative w-full aspect-[4/3] rounded-xl bg-surface-container/60 ghost-border overflow-hidden mb-4">
                 <button
                   onClick={() => fileInputRef.current?.click()}
@@ -150,21 +170,28 @@ function ScanCounterDialog({
                   </div>
                 </button>
               </div>
+            </motion.div>
+          )}
 
-              {/* Error message */}
-              <AnimatePresence>
-                {error && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="flex items-start gap-2 text-error/90 text-xs font-body mb-3 px-1"
-                  >
-                    <AlertCircle className="size-4 shrink-0 mt-0.5" />
-                    <span>{error}</span>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+          {/* ═══ PROCESSING PHASE ═══ */}
+          {phase === 'processing' && (
+            <motion.div
+              key="processing"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+              className="px-6 pb-6 flex flex-col items-center justify-center py-8"
+            >
+              <div className="relative mb-4">
+                <div className="w-20 h-20 rounded-full bg-surface-container-high/40 flex items-center justify-center">
+                  <Loader2 className="size-10 text-primary animate-spin" />
+                </div>
+                <div className="absolute inset-0 rounded-full border-2 border-primary/20 animate-ping" style={{ animationDuration: '2s' }} />
+              </div>
+              <p className="text-on-surface-variant/70 text-sm font-body text-center animate-pulse">
+                Extracting numbers...
+              </p>
             </motion.div>
           )}
 
@@ -179,8 +206,6 @@ function ScanCounterDialog({
               className="px-6 pb-6"
             >
               <div className="flex flex-col items-center gap-4 py-2">
-                
-                {/* Photo Preview */}
                 {previewUrl && (
                   <div className="w-full h-32 rounded-lg overflow-hidden border border-outline-variant/20 relative">
                     <img
@@ -198,10 +223,9 @@ function ScanCounterDialog({
                   </div>
                 )}
 
-                {/* Manual Number Input */}
                 <div className="w-full mt-2">
                   <label htmlFor="manual-count" className="block text-xs uppercase tracking-wider text-on-surface-variant/60 font-body mb-2 text-center">
-                    What number is on the counter?
+                    AI Detection Result (Edit if needed)
                   </label>
                   <input
                     id="manual-count"
@@ -214,12 +238,11 @@ function ScanCounterDialog({
                       setManualCount(e.target.value);
                       setError(null);
                     }}
-                    className="w-full h-16 rounded-xl bg-surface-container-highest border border-outline-variant/30 text-center text-3xl font-light text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all placeholder:text-on-surface-variant/20"
+                    className="w-full h-16 rounded-xl bg-surface-container-highest border border-outline-variant/30 text-center text-3xl font-light text-gold-gradient focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all placeholder:text-on-surface-variant/20"
                     autoFocus
                   />
                 </div>
                 
-                {/* Error message */}
                 <AnimatePresence>
                   {error && (
                     <motion.div
@@ -229,12 +252,11 @@ function ScanCounterDialog({
                       className="flex items-start gap-2 text-error/90 text-xs font-body w-full justify-center"
                     >
                       <AlertCircle className="size-4 shrink-0" />
-                      <span>{error}</span>
+                      <span className="text-center">{error}</span>
                     </motion.div>
                   )}
                 </AnimatePresence>
 
-                {/* Add Chants Button */}
                 <button
                   onClick={handleConfirm}
                   disabled={!manualCount}
