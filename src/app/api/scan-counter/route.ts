@@ -1,90 +1,47 @@
-import { NextRequest, NextResponse } from 'next/server';
-import ZAI from 'z-ai-web-dev-sdk';
+import { NextResponse } from 'next/server';
 
-/**
- * POST /api/scan-counter
- *
- * Accepts a base64-encoded image of a physical tally/kunti counter
- * and uses VLM (Vision Language Model) to read the displayed number.
- */
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { image } = body as { image?: string };
+    const { image } = await request.json();
 
-    if (!image) {
-      return NextResponse.json(
-        { error: 'No image provided. Send a base64-encoded image in the "image" field.' },
-        { status: 400 }
-      );
+    // Clean up the base64 string
+    const base64Data = image.split(',')[1] || image;
+    const mimeType = image.split(';')[0].split(':')[1] || 'image/jpeg';
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ success: false, error: 'AI is sleeping (API key missing)' }, { status: 500 });
     }
 
-    // Normalize the base64 string – strip data URI prefix if present
-    const base64Data = image.includes('base64,')
-      ? image.split('base64,')[1]
-      : image;
-
-    // Build the data URI for VLM
-    const mimeType = image.includes('image/png') ? 'image/png' : 'image/jpeg';
-    const dataUrl = `data:${mimeType};base64,${base64Data}`;
-
-    const zai = await ZAI.create();
-
-    const response = await zai.chat.completions.createVision({
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: [
-                'You are an expert OCR system for physical tally counters (kunti counters / click counters / mechanical counters).',
-                '',
-                'Look at this image carefully. It shows a physical counter device with a digital or mechanical number display.',
-                '',
-                'Your task:',
-                '1. Identify the number currently displayed on the counter.',
-                '2. Return ONLY the number as a plain integer (no commas, no text, no explanation).',
-                '3. If the counter shows "00000" or all zeros, return 0.',
-                '4. If you cannot read any number, return -1.',
-                '',
-                'Important: These counters typically show 4-6 digit numbers. Read each digit carefully.',
-              ].join('\n'),
-            },
-            {
-              type: 'image_url',
-              image_url: { url: dataUrl },
-            },
-          ],
-        },
-      ],
-      thinking: { type: 'disabled' },
+    // Call the Gemini Vision API
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              { text: "You are an expert OCR tool. Look closely at the digital LCD screen on this tally counter. What is the exact number displayed? Respond ONLY with the digits (e.g. 18104). Do not include any other words, letters, punctuation, or explanations." },
+              { inline_data: { mime_type: mimeType, data: base64Data } }
+            ]
+          }
+        ]
+      })
     });
 
-    const rawContent = response.choices?.[0]?.message?.content || '';
-    // Extract the first integer from the response
-    const match = rawContent.match(/-?\d+/);
-    const detectedNumber = match ? parseInt(match[0], 10) : -1;
+    const data = await response.json();
+    
+    // Extract the AI's guess and strip out any accidental text
+    const extractedText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+    const numbersOnly = extractedText.replace(/[^0-9]/g, '');
 
-    if (detectedNumber < 0) {
-      return NextResponse.json({
-        success: false,
-        number: 0,
-        message: 'Could not read a number from the counter. Please retake the photo with better lighting and focus.',
-        raw: rawContent,
-      });
+    if (numbersOnly) {
+      return NextResponse.json({ success: true, number: parseInt(numbersOnly, 10) });
+    } else {
+      return NextResponse.json({ success: false, error: 'Could not read the LCD screen clearly.' });
     }
-
-    return NextResponse.json({
-      success: true,
-      number: detectedNumber,
-      message: `Detected ${detectedNumber.toLocaleString('en-IN')} from counter.`,
-    });
   } catch (error) {
-    console.error('Scan counter API error:', error);
-    return NextResponse.json(
-      { error: 'Failed to process image. Please try again.' },
-      { status: 500 }
-    );
+    console.error(error);
+    return NextResponse.json({ success: false, error: 'Network error communicating with AI.' }, { status: 500 });
   }
 }
