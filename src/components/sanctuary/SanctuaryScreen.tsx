@@ -96,42 +96,36 @@ function LotusSVG({ className }: { className?: string }) {
       className={className}
       aria-hidden="true"
     >
-      {/* Center petal */}
       <path
         d="M50 55 C50 55, 45 30, 50 8 C55 30, 50 55, 50 55Z"
         fill="rgba(242,202,80,0.25)"
         stroke="rgba(242,202,80,0.4)"
         strokeWidth="0.5"
       />
-      {/* Left-inner petal */}
       <path
         d="M50 55 C50 55, 30 35, 22 12 C38 25, 50 55, 50 55Z"
         fill="rgba(242,202,80,0.15)"
         stroke="rgba(242,202,80,0.3)"
         strokeWidth="0.5"
       />
-      {/* Right-inner petal */}
       <path
         d="M50 55 C50 55, 70 35, 78 12 C62 25, 50 55, 50 55Z"
         fill="rgba(242,202,80,0.15)"
         stroke="rgba(242,202,80,0.3)"
         strokeWidth="0.5"
       />
-      {/* Left-outer petal */}
       <path
         d="M50 55 C50 55, 20 40, 6 20 C28 30, 50 55, 50 55Z"
         fill="rgba(242,202,80,0.08)"
         stroke="rgba(242,202,80,0.2)"
         strokeWidth="0.5"
       />
-      {/* Right-outer petal */}
       <path
         d="M50 55 C50 55, 80 40, 94 20 C72 30, 50 55, 50 55Z"
         fill="rgba(242,202,80,0.08)"
         stroke="rgba(242,202,80,0.2)"
         strokeWidth="0.5"
       />
-      {/* Tiny center detail */}
       <ellipse cx="50" cy="52" rx="2" ry="1" fill="rgba(242,202,80,0.35)" />
     </svg>
   );
@@ -210,10 +204,10 @@ export default function SanctuaryScreen() {
       </div>
 
       {/* ══════════════════════════════════════════
-          1. HEADER
+          1. HEADER (ADDED pt-12 FOR STATUS BAR)
       ══════════════════════════════════════════ */}
-      <header className="relative z-10 glass border-b border-outline-variant/10">
-        <div className="flex items-center justify-between px-5 py-3 max-w-lg mx-auto">
+      <header className="relative z-10 glass border-b border-outline-variant/10 pt-12">
+        <div className="flex items-center justify-between px-5 pb-3 max-w-lg mx-auto">
           {/* Devata dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -421,9 +415,9 @@ export default function SanctuaryScreen() {
       <div className="flex-1" />
 
       {/* ══════════════════════════════════════════
-          5. DEVOTION FOOTER
+          5. DEVOTION FOOTER (ADDED pb-16 FOR GESTURE BAR)
       ══════════════════════════════════════════ */}
-      <footer className="relative z-10 pb-8 pt-4 px-5">
+      <footer className="relative z-10 pb-16 pt-4 px-5">
         <div className="flex flex-col items-center gap-3">
           {/* Ambient glow behind lotus */}
           <div className="relative">
@@ -435,8 +429,8 @@ export default function SanctuaryScreen() {
 
           <p className="font-serif italic text-sm text-on-surface-variant/70 text-center leading-relaxed">
             {userName !== 'Devotee'
-              ? `&ldquo;Every name ${userName} chants counts&rdquo;`
-              : '&ldquo;Every single name counts&rdquo;'}
+              ? `\u201cEvery name ${userName} chants counts\u201d`
+              : '\u201cEvery single name counts\u201d'}
           </p>
         </div>
       </footer>
