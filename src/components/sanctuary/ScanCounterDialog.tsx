@@ -18,7 +18,6 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { useNaamJapStore } from '@/lib/store';
-import Tesseract from 'tesseract.js';
 
 // ──────────────────────────────────────────────
 // Scan Physical Counter Dialog
@@ -56,21 +55,22 @@ function ScanCounterDialog({
     };
   }, [previewUrl]);
 
-  const processImageWithAI = async (imageUrl: string) => {
+  // The new bridge to your Gemini Brain
+  const processImageWithAI = async (base64Image: string) => {
     setPhase('processing');
     try {
-      // Run the local AI engine
-      const result = await Tesseract.recognize(imageUrl, 'eng', {
-        tessedit_char_whitelist: '0123456789', // Tell AI to only look for numbers
+      const res = await fetch('/api/scan-counter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64Image }),
       });
-      
-      const text = result.data.text;
-      const numbersOnly = text.replace(/[^0-9]/g, ''); // Strip out any weird symbols
-      
-      if (numbersOnly) {
-        setManualCount(numbersOnly);
+
+      const data = await res.json();
+
+      if (data.success && data.number > 0) {
+        setManualCount(data.number.toString());
       } else {
-        setError("AI couldn't clearly see the numbers. Please enter them manually.");
+        setError(data.error || "AI couldn't clearly see the numbers. Please enter them manually.");
       }
     } catch (err) {
       setError("AI reading failed. Please enter the number manually.");
@@ -88,13 +88,23 @@ function ScanCounterDialog({
         return;
       }
 
-      setError(null);
+      // Check file size (keep it under 5MB for fast AI reading)
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Image is too large. Please use a smaller photo.');
+        return;
+      }
 
+      setError(null);
       const url = URL.createObjectURL(file);
       setPreviewUrl(url);
-      
-      // Send the image to the AI immediately
-      processImageWithAI(url);
+
+      // Convert image to base64 so Gemini can read it
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result as string;
+        processImageWithAI(base64);
+      };
+      reader.readAsDataURL(file);
 
       e.target.value = '';
     },
@@ -129,7 +139,7 @@ function ScanCounterDialog({
           </DialogTitle>
           <DialogDescription className="text-on-surface-variant/60 text-sm">
             {phase === 'capture' && 'Take a photo of your physical tally counter to log your chants.'}
-            {phase === 'processing' && 'AI is reading your photo...'}
+            {phase === 'processing' && 'Gemini AI is reading your photo...'}
             {phase === 'verify' && 'Confirm the number the AI detected.'}
           </DialogDescription>
         </DialogHeader>
@@ -190,7 +200,7 @@ function ScanCounterDialog({
                 <div className="absolute inset-0 rounded-full border-2 border-primary/20 animate-ping" style={{ animationDuration: '2s' }} />
               </div>
               <p className="text-on-surface-variant/70 text-sm font-body text-center animate-pulse">
-                Extracting numbers...
+                Gemini is extracting numbers...
               </p>
             </motion.div>
           )}
