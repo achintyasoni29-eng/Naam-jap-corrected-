@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model UserProfile {
+  id           String   @id @default(cuid())
+  name         String?
+  avatarUrl    String?
+  ishtaDevata  String   @default("Sri Ram")
+  hapticMode   String   @default("every_108") // "every_108", "every_tap", "off"
+  totalChants  Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  sessions     Session[]
+  milestones   Milestone[]
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  user         UserProfile @relation(fields: [userId], references: [id])
+  date         DateTime @default(now())
+  chantCount   Int      @default(0)
+  duration     Int      @default(0) // in seconds
+  ishtaDevata  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Milestone {
+  id           String   @id @default(cuid())
+  threshold    Int      @unique
+  name         String
+  description  String
+  icon         String
+  unlockedAt   DateTime?
+  userId       String
+  user         UserProfile @relation(fields: [userId], references: [id])
+  createdAt    DateTime @default(now())
+}
+
+model GlobalCounter {
+  id           String   @id @default(cuid())
+  totalChants  Int      @default(0)
+  updatedAt    DateTime @updatedAt
+}
+
+model DevotionFeed {
+  id           String   @id @default(cuid())
+  type         String   // "chant_complete", "lamp_lit", "milestone_unlocked"
+  message      String
+  city         String?
+  userName     String?
+  avatarUrl    String?
+  chantCount   Int?
+  createdAt    DateTime @default(now())
+}
