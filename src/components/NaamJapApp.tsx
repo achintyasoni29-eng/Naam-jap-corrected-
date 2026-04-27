@@ -31,7 +31,7 @@ export default function NaamJapApp() {
   // Show a serene loading screen while waiting for hydration
   if (!isReady) {
     return (
-      <div className="min-h-screen bg-surface-container-lowest flex flex-col items-center justify-center gap-4">
+      <div className="min-h-[100dvh] w-full max-w-[100vw] bg-surface-container-lowest flex flex-col items-center justify-center gap-4 overflow-hidden">
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
@@ -44,7 +44,9 @@ export default function NaamJapApp() {
   }
 
   return (
-    <div className="relative min-h-screen bg-surface-container-lowest overflow-x-hidden">
+    // STRICT MOBILE BOUNDARIES ADDED HERE
+    <div className="relative flex flex-col min-h-[100dvh] w-full max-w-[100vw] bg-surface-container-lowest overflow-x-hidden">
+      
       {/* Screen Content */}
       <AnimatePresence mode="wait">
         {currentTab === 'sanctuary' && (
@@ -54,7 +56,7 @@ export default function NaamJapApp() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
-            className="min-h-screen"
+            className="flex-1 w-full min-h-[100dvh] pb-28" // ADDED pb-28 SO NAV BAR DOESN'T HIDE CONTENT
           >
             <SanctuaryScreen />
           </motion.div>
@@ -66,7 +68,7 @@ export default function NaamJapApp() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
-            className="min-h-screen"
+            className="flex-1 w-full min-h-[100dvh] pb-28"
           >
             <PilgrimageScreen />
           </motion.div>
@@ -78,7 +80,7 @@ export default function NaamJapApp() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
-            className="min-h-screen"
+            className="flex-1 w-full min-h-[100dvh] pb-28"
           >
             <AkhandJyotScreen />
           </motion.div>
@@ -86,8 +88,8 @@ export default function NaamJapApp() {
       </AnimatePresence>
 
       {/* Floating Bottom Navigation */}
-      <nav className="fixed bottom-6 left-0 right-0 z-50 flex justify-center pointer-events-none">
-        <div className="glass-strong rounded-full px-3 py-2 flex items-center gap-1 shadow-[0_12px_40px_rgba(0,0,0,0.12)] border border-outline-variant/10 pointer-events-auto">
+      <nav className="fixed bottom-4 left-0 right-0 w-full px-4 z-50 flex justify-center pointer-events-none">
+        <div className="glass-strong max-w-full rounded-full px-3 py-2 flex items-center gap-1 overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.12)] border border-outline-variant/10 pointer-events-auto">
           {tabs.map((tab) => {
             const isActive = currentTab === tab.id;
             const Icon = tab.icon;
@@ -96,7 +98,7 @@ export default function NaamJapApp() {
                 key={tab.id}
                 onClick={() => setCurrentTab(tab.id)}
                 className={`
-                  relative flex flex-col items-center justify-center rounded-full px-4 py-2
+                  relative flex flex-col items-center justify-center rounded-full px-3 sm:px-4 py-2
                   tactile-transition select-none
                   ${isActive
                     ? 'gold-gradient text-on-primary scale-110 shadow-lg'
@@ -112,7 +114,7 @@ export default function NaamJapApp() {
                   className={isActive ? 'drop-shadow-sm' : ''}
                 />
                 {!isActive && (
-                  <span className="text-[10px] uppercase tracking-wider mt-0.5 font-medium">
+                  <span className="text-[10px] uppercase tracking-wider mt-0.5 font-medium whitespace-nowrap">
                     {tab.label === 'Akhand Jyot' ? 'Jyot' : tab.label}
                   </span>
                 )}
