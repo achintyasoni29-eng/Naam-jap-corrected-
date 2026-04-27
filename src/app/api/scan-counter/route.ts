@@ -12,7 +12,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'API key missing in Vercel.' }, { status: 500 });
     }
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+    // UPDATED: Pointing directly to the "-latest" endpoint
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
 
     const data = await response.json();
     
-    // Catch Google-specific API errors (like wrong keys or blocked requests)
+    // Catch Google-specific API errors
     if (!response.ok) {
         return NextResponse.json({ success: false, error: `Google API Error: ${data.error?.message || 'Request blocked.'}` });
     }
@@ -40,7 +41,6 @@ export async function POST(request: Request) {
     if (numbersOnly) {
       return NextResponse.json({ success: true, number: parseInt(numbersOnly, 10) });
     } else {
-      // If AI hallucinates, show us what it actually saw
       return NextResponse.json({ success: false, error: `AI couldn't find numbers. It saw: "${extractedText}"` });
     }
   } catch (error) {
