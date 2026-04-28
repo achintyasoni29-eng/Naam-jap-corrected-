@@ -427,10 +427,10 @@ export default function SanctuaryScreen() {
             <LotusSVG className="w-16 h-auto relative z-10" />
           </div>
 
-          <p className="font-serif italic text-sm text-on-surface-variant/70 text-center leading-relaxed">
+         <p className="font-serif italic text-sm text-on-surface-variant/70 text-center leading-relaxed">
             {userName !== 'Devotee'
-              ? `\u201cEvery name ${userName} chants counts\u201d`
-              : '\u201cEvery single name counts\u201d'}
+              ? `\u201CEvery name ${userName} chants counts\u201D`
+              : '\u201CEvery single name counts\u201D'}
           </p>
         </div>
       </footer>
