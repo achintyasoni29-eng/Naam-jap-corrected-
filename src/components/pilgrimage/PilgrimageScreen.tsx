@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   useNaamJapStore,
@@ -20,6 +20,7 @@ import {
   ChevronUp,
   User,
 } from 'lucide-react';
+import ProfileDialog from '@/components/sanctuary/ProfileDialog';
 
 /* ─── Icon Mapping ─── */
 type IconComponent = React.ComponentType<{ size?: number; className?: string }>;
@@ -107,6 +108,9 @@ export default function PilgrimageScreen() {
   const getNextMilestone = useNaamJapStore((s) => s.getNextMilestone);
   const setCurrentTab = useNaamJapStore((s) => s.setCurrentTab);
 
+  // Added state for the Profile Dialog
+  const [showProfile, setShowProfile] = useState(false);
+
   const nextMilestone = getNextMilestone();
 
   /* ── Overall progress (0→1) across entire journey ── */
@@ -160,16 +164,24 @@ export default function PilgrimageScreen() {
   const gradientStop = useMemo(() => Math.round(overallProgress * 100), [overallProgress]);
 
   return (
-    <div className="min-h-screen bg-surface-container-lowest pb-32">
+    // FIXED: Increased bottom padding (pb-40) so Sacred Footsteps clears the nav bar
+    <div className="min-h-screen bg-surface-container-lowest pb-40">
+      
       {/* ─── Header ─── */}
-      <header className="glass sticky top-0 z-50 px-5 py-3 flex items-center justify-between">
+      {/* FIXED: Added pt-12 to push content down below the Android status bar/notch */}
+      <header className="glass sticky top-0 z-50 px-5 pt-12 pb-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <ChevronUp className="w-5 h-5 text-primary" />
           <h1 className="font-serif text-primary text-xl font-bold tracking-wide">Naam Jap</h1>
         </div>
-        <div className="w-9 h-9 rounded-full bg-surface-container-high flex items-center justify-center ghost-border">
+        
+        {/* FIXED: Changed to a <button> and wired up onClick to show Profile Dialog */}
+        <button 
+          onClick={() => setShowProfile(true)}
+          className="w-9 h-9 rounded-full bg-surface-container-high flex items-center justify-center ghost-border active:scale-95 transition-transform"
+        >
           <User className="w-4 h-4 text-on-surface-variant" />
-        </div>
+        </button>
       </header>
 
       <main className="px-4 space-y-6 mt-4">
@@ -425,6 +437,9 @@ export default function PilgrimageScreen() {
           </div>
         </motion.section>
       </main>
+
+      {/* Render the Profile Dialog so the icon actually opens it! */}
+      <ProfileDialog open={showProfile} onOpenChange={setShowProfile} />
     </div>
   );
 }
