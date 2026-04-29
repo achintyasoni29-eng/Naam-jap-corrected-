@@ -15,9 +15,11 @@ import {
 } from 'lucide-react';
 
 import { useNaamJapStore, MILESTONES } from '@/lib/store';
+// FIXED: Imported ProfileDialog to make the profile button work
+import ProfileDialog from '@/components/sanctuary/ProfileDialog';
 
 /* ------------------------------------------------------------------ */
-/*  Types                                                              */
+/*  Types                                                             */
 /* ------------------------------------------------------------------ */
 interface FeedEntry {
   id: string;
@@ -33,7 +35,7 @@ interface FeedEntry {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Motivational Data — Authentic devotional names & cities             */
+/*  Motivational Data — Authentic devotional names & cities           */
 /* ------------------------------------------------------------------ */
 const DEVOTEE_NAMES = [
   'Priya Sharma', 'Rajesh Patel', 'Ananya Singh', 'Vikram Joshi',
@@ -100,7 +102,7 @@ const AVATARS_BG = [
 ];
 
 /* ------------------------------------------------------------------ */
-/*  Helpers                                                            */
+/*  Helpers                                                           */
 /* ------------------------------------------------------------------ */
 function formatNumber(n: number): string {
   if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`;
@@ -267,7 +269,7 @@ const cardVariants = {
 };
 
 /* ------------------------------------------------------------------ */
-/*  Main Component                                                     */
+/*  Main Component                                                      */
 /* ------------------------------------------------------------------ */
 export default function AkhandJyotScreen() {
   const userName = useNaamJapStore((s) => s.userName);
@@ -275,6 +277,9 @@ export default function AkhandJyotScreen() {
   const todayCount = useNaamJapStore((s) => s.getTodayCount());
   const ishtaDevata = useNaamJapStore((s) => s.ishtaDevata);
   const unlockedMilestones = useNaamJapStore((s) => s.unlockedMilestones);
+
+  // FIXED: Added state to toggle the Profile Dialog
+  const [showProfile, setShowProfile] = useState(false);
 
   // State for simulated community feed entries (updated by timer callback)
   const [communityFeed, setCommunityFeed] = useState<FeedEntry[]>(() => generateInitialFeed(12));
@@ -339,14 +344,16 @@ export default function AkhandJyotScreen() {
   return (
     <div className="min-h-screen bg-surface-container-lowest flex flex-col">
       {/* HEADER */}
+      {/* FIXED: Added pt-12 to push down below Android notch */}
       <motion.header
         initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: 'easeOut' }}
-        className="sticky top-0 z-50 glass px-4 py-3 flex items-center justify-between"
+        className="sticky top-0 z-50 glass px-4 pt-12 pb-3 flex items-center justify-between"
       >
         <button
-          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-highest/40 transition-colors"
+          onClick={() => setShowProfile(true)} // Currently routing to Profile for ease
+          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-highest/40 transition-colors active:scale-95"
           aria-label="Settings"
         >
           <Settings className="h-5 w-5 text-on-surface-variant" />
@@ -356,8 +363,10 @@ export default function AkhandJyotScreen() {
           {displayName ? `${displayName}'s Jyot` : 'Akhand Jyot'}
         </h1>
 
+        {/* FIXED: Wired up the onClick event to show Profile Dialog */}
         <button
-          className="w-10 h-10 rounded-full bg-surface-container-high/60 border border-outline-variant/15 flex items-center justify-center hover:bg-surface-container-highest/40 transition-colors"
+          onClick={() => setShowProfile(true)}
+          className="w-10 h-10 rounded-full bg-surface-container-high/60 border border-outline-variant/15 flex items-center justify-center hover:bg-surface-container-highest/40 transition-colors active:scale-95"
           aria-label="Profile"
         >
           {displayName ? (
@@ -371,7 +380,8 @@ export default function AkhandJyotScreen() {
       </motion.header>
 
       {/* CONTENT */}
-      <main className="flex-1 overflow-y-auto custom-scrollbar pb-32">
+      {/* FIXED: Bumped bottom padding to pb-40 to clear navigation menu */}
+      <main className="flex-1 overflow-y-auto custom-scrollbar pb-40">
         {/* FLAME HERO SECTION */}
         <section className="relative flex flex-col items-center pt-10 pb-8 px-4 overflow-hidden">
           {/* Pulsating radial glow */}
@@ -509,9 +519,10 @@ export default function AkhandJyotScreen() {
             </p>
           </motion.div>
 
-          {/* Feed cards */}
-          <div className="flex flex-col gap-3 max-h-[500px] overflow-y-auto custom-scrollbar pr-1">
-            <AnimatePresence mode="popLayout">
+          {/* FIXED: Removed max-h and nested scrollbar to allow natural page scrolling */}
+          <div className="flex flex-col gap-3 pr-1">
+            {/* FIXED: Removed mode="popLayout" to stop the text overlapping glitch */}
+            <AnimatePresence>
               {feedEntries.map((entry) => (
                 <motion.div
                   key={entry.id}
@@ -710,6 +721,10 @@ export default function AkhandJyotScreen() {
           <span className="w-1.5 h-1.5 rounded-full bg-primary/50" />
         </motion.div>
       </main>
+
+      {/* FIXED: Ensure the Profile Dialog actually renders! */}
+      <ProfileDialog open={showProfile} onOpenChange={setShowProfile} />
     </div>
   );
 }
+```</AnimatePresence>
