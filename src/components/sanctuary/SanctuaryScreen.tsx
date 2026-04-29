@@ -406,7 +406,7 @@ export default function SanctuaryScreen() {
         >
           <Camera className="size-4 text-primary" />
           <span className="font-body text-xs font-medium text-on-surface whitespace-nowrap">
-            Scan Physical Counter
+            Upload Counter Image
           </span>
         </button>
       </section>
