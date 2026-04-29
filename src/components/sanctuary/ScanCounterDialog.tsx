@@ -117,35 +117,27 @@ function ScanCounterDialog({ open, onOpenChange }: { open: boolean; onOpenChange
         <DialogHeader className="pt-6 pb-2 px-6">
           <DialogTitle className="font-serif text-on-surface text-lg flex items-center gap-2">
             <Camera className="size-5 text-primary" />
-            Sync Physical Counter
+            Upload Counter Image
           </DialogTitle>
           <DialogDescription className="text-on-surface-variant/60 text-sm">
             {phase === 'capture' && 'Take a photo of your physical tally counter to log your chants.'}
-            {phase === 'processing' && 'Gemini AI is reading your photo...'}
-            {phase === 'verify' && 'Confirm the number the AI detected.'}
+            {phase === 'processing' && 'Extracting numbers from your photo...'}
+            {phase === 'verify' && 'Confirm the number detected.'}
           </DialogDescription>
         </DialogHeader>
 
-       <AnimatePresence>
-                  {error && (
-                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="flex items-start gap-2 text-error/90 text-xs font-body w-full justify-center">
-                      <AlertCircle className="size-4 shrink-0" />
-                      <span className="text-center">{error}</span>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* --- NEW ANTI-CHEAT BANNER --- */}
-                <div className="w-full bg-surface-container-high/40 border border-outline-variant/20 rounded-lg p-3 mt-2 flex items-start gap-2">
-                  <AlertCircle className="size-4 text-primary shrink-0 mt-0.5" />
-                  <p className="text-xs text-on-surface-variant/80 font-body leading-relaxed text-left">
-                    <strong>Integrity Check:</strong> Please ensure you enter the exact number from your physical counter. Honesty is the foundation of devotion.
-                  </p>
-                </div>
-                {/* ----------------------------- */}
-
-                <button onClick={handleConfirm} disabled={!manualCount} className="w-full h-12 mt-4 rounded-xl gold-gradient text-on-primary font-body font-semibold text-sm disabled:opacity-50 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
-                  <Check className="size-5" /> Add to My Total
+        <AnimatePresence mode="wait">
+          {phase === 'capture' && (
+            <motion.div key="capture" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="px-6 pb-6">
+              <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileChange} className="hidden" />
+              <div className="relative w-full aspect-[4/3] rounded-xl bg-surface-container/60 ghost-border overflow-hidden mb-4">
+                <button onClick={() => fileInputRef.current?.click()} className="absolute inset-0 flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-surface-container-high/30 transition-colors">
+                  <div className="w-16 h-16 rounded-full bg-surface-container-high/60 flex items-center justify-center">
+                    <Camera className="size-8 text-primary/70" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-on-surface-variant/70 text-sm font-body font-medium">Open Camera</p>
+                  </div>
                 </button>
               </div>
             </motion.div>
@@ -158,7 +150,7 @@ function ScanCounterDialog({ open, onOpenChange }: { open: boolean; onOpenChange
                   <Loader2 className="size-10 text-primary animate-spin" />
                 </div>
               </div>
-              <p className="text-on-surface-variant/70 text-sm font-body text-center animate-pulse">Gemini is extracting numbers...</p>
+              <p className="text-on-surface-variant/70 text-sm font-body text-center animate-pulse">Scanning numbers...</p>
             </motion.div>
           )}
 
@@ -177,6 +169,7 @@ function ScanCounterDialog({ open, onOpenChange }: { open: boolean; onOpenChange
                   <label htmlFor="manual-count" className="block text-xs uppercase tracking-wider text-on-surface-variant/60 font-body mb-2 text-center">AI Detection Result</label>
                   <input id="manual-count" type="number" pattern="[0-9]*" inputMode="numeric" placeholder="e.g. 108" value={manualCount} onChange={(e) => { setManualCount(e.target.value); setError(null); }} className="w-full h-16 rounded-xl bg-surface-container-highest border border-outline-variant/30 text-center text-3xl font-light text-gold-gradient focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all" autoFocus />
                 </div>
+                
                 <AnimatePresence>
                   {error && (
                     <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="flex items-start gap-2 text-error/90 text-xs font-body w-full justify-center">
@@ -185,7 +178,17 @@ function ScanCounterDialog({ open, onOpenChange }: { open: boolean; onOpenChange
                     </motion.div>
                   )}
                 </AnimatePresence>
-                <button onClick={handleConfirm} disabled={!manualCount} className="w-full h-12 mt-2 rounded-xl gold-gradient text-on-primary font-body font-semibold text-sm disabled:opacity-50 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+
+                {/* --- NEW ANTI-CHEAT BANNER --- */}
+                <div className="w-full bg-surface-container-high/40 border border-outline-variant/20 rounded-lg p-3 mt-2 flex items-start gap-2">
+                  <AlertCircle className="size-4 text-primary shrink-0 mt-0.5" />
+                  <p className="text-xs text-on-surface-variant/80 font-body leading-relaxed text-left">
+                    <strong>Integrity Check:</strong> Please ensure you enter the exact number from your physical counter. Honesty is the foundation of devotion.
+                  </p>
+                </div>
+                {/* ----------------------------- */}
+
+                <button onClick={handleConfirm} disabled={!manualCount} className="w-full h-12 mt-4 rounded-xl gold-gradient text-on-primary font-body font-semibold text-sm disabled:opacity-50 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
                   <Check className="size-5" /> Add to My Total
                 </button>
               </div>
