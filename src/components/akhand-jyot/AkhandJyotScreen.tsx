@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Settings,
@@ -8,14 +8,12 @@ import {
   Flame,
   Sparkles,
   Sun,
-  Camera,
   Trophy,
   Users,
   MapPin,
 } from 'lucide-react';
 
 import { useNaamJapStore, MILESTONES } from '@/lib/store';
-// FIXED: Imported ProfileDialog to make the profile button work
 import ProfileDialog from '@/components/sanctuary/ProfileDialog';
 
 /* ------------------------------------------------------------------ */
@@ -27,7 +25,7 @@ interface FeedEntry {
   city: string;
   avatar: string;
   message: string;
-  icon: 'heart' | 'camera' | 'sparkle' | 'flame';
+  icon: 'heart' | 'sparkle' | 'flame';
   iconColor: string;
   isUser: boolean;
   timestamp: number;
@@ -135,7 +133,6 @@ function generateDevoteeEntry(): FeedEntry {
   const count = Math.floor(Math.random() * 500) + 1;
   const msgFn = pickRandom(DEVOTIONAL_MESSAGES);
 
-  // 85% chance of chant entry, 15% chance of milestone
   if (Math.random() < 0.85) {
     return {
       id: `devotee-${entryCounter}-${Date.now()}`,
@@ -166,7 +163,6 @@ function generateDevoteeEntry(): FeedEntry {
   }
 }
 
-// Generate initial batch of "already happened" entries
 function generateInitialFeed(count: number): FeedEntry[] {
   const entries: FeedEntry[] = [];
   for (let i = 0; i < count; i++) {
@@ -175,22 +171,6 @@ function generateInitialFeed(count: number): FeedEntry[] {
     entries.push(entry);
   }
   return entries;
-}
-
-/* ------------------------------------------------------------------ */
-/*  Icon map                                                           */
-/* ------------------------------------------------------------------ */
-function FeedIcon({ type }: { type: 'heart' | 'camera' | 'sparkle' | 'flame' }) {
-  switch (type) {
-    case 'heart':
-      return <Heart className="h-3.5 w-3.5" />;
-    case 'camera':
-      return <Camera className="h-3.5 w-3.5" />;
-    case 'sparkle':
-      return <Sparkles className="h-3.5 w-3.5" />;
-    case 'flame':
-      return <Flame className="h-3.5 w-3.5" />;
-  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -278,13 +258,9 @@ export default function AkhandJyotScreen() {
   const ishtaDevata = useNaamJapStore((s) => s.ishtaDevata);
   const unlockedMilestones = useNaamJapStore((s) => s.unlockedMilestones);
 
-  // FIXED: Added state to toggle the Profile Dialog
   const [showProfile, setShowProfile] = useState(false);
-
-  // State for simulated community feed entries (updated by timer callback)
   const [communityFeed, setCommunityFeed] = useState<FeedEntry[]>(() => generateInitialFeed(12));
 
-  // Compute user milestone entries reactively (no setState needed)
   const userMilestoneEntries = useMemo((): FeedEntry[] => {
     return [...unlockedMilestones]
       .sort((a, b) => b - a)
@@ -307,44 +283,39 @@ export default function AkhandJyotScreen() {
       .filter((e): e is FeedEntry => e !== null);
   }, [unlockedMilestones, userName]);
 
-  // Merge community feed with user milestones, sorted by time
   const feedEntries = useMemo(
     () => [...userMilestoneEntries, ...communityFeed].sort((a, b) => b.timestamp - a.timestamp).slice(0, 30),
     [userMilestoneEntries, communityFeed],
   );
 
-  // Simulate new devotee entries appearing every 6-14 seconds
   useEffect(() => {
+    let timerId: NodeJS.Timeout;
+    
     const scheduleNext = () => {
       const delay = 6000 + Math.random() * 8000;
-      return setTimeout(() => {
+      timerId = setTimeout(() => {
         setCommunityFeed((prev) => {
           const newEntry = generateDevoteeEntry();
           return [newEntry, ...prev].slice(0, 30);
         });
-        timerRef.current = scheduleNext();
+        scheduleNext();
       }, delay);
     };
 
-    const timerRef = { current: scheduleNext() };
+    scheduleNext();
 
     return () => {
-      clearTimeout(timerRef.current);
+      clearTimeout(timerId);
     };
   }, []);
 
-  // Stats
   const totalMilestones = unlockedMilestones.length;
   const progress = Math.min(100, (totalCount / 10_000_000) * 100);
   const nextMilestone = MILESTONES.find(m => totalCount < m.threshold);
-
-  // Display name
   const displayName = userName !== 'Devotee' ? userName : null;
 
   return (
     <div className="min-h-screen bg-surface-container-lowest flex flex-col">
-      {/* HEADER */}
-      {/* FIXED: Added pt-12 to push down below Android notch */}
       <motion.header
         initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -352,7 +323,7 @@ export default function AkhandJyotScreen() {
         className="sticky top-0 z-50 glass px-4 pt-12 pb-3 flex items-center justify-between"
       >
         <button
-          onClick={() => setShowProfile(true)} // Currently routing to Profile for ease
+          onClick={() => setShowProfile(true)}
           className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-highest/40 transition-colors active:scale-95"
           aria-label="Settings"
         >
@@ -363,7 +334,6 @@ export default function AkhandJyotScreen() {
           {displayName ? `${displayName}'s Jyot` : 'Akhand Jyot'}
         </h1>
 
-        {/* FIXED: Wired up the onClick event to show Profile Dialog */}
         <button
           onClick={() => setShowProfile(true)}
           className="w-10 h-10 rounded-full bg-surface-container-high/60 border border-outline-variant/15 flex items-center justify-center hover:bg-surface-container-highest/40 transition-colors active:scale-95"
@@ -379,12 +349,8 @@ export default function AkhandJyotScreen() {
         </button>
       </motion.header>
 
-      {/* CONTENT */}
-      {/* FIXED: Bumped bottom padding to pb-40 to clear navigation menu */}
       <main className="flex-1 overflow-y-auto custom-scrollbar pb-40">
-        {/* FLAME HERO SECTION */}
         <section className="relative flex flex-col items-center pt-10 pb-8 px-4 overflow-hidden">
-          {/* Pulsating radial glow */}
           <div
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] md:w-[500px] md:h-[500px] rounded-full animate-flame-pulse pointer-events-none"
             style={{
@@ -394,7 +360,6 @@ export default function AkhandJyotScreen() {
             }}
           />
 
-          {/* Flame container */}
           <motion.div
             initial={{ opacity: 0, scale: 0.85 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -407,8 +372,6 @@ export default function AkhandJyotScreen() {
                 background: 'linear-gradient(to bottom, rgba(242,202,80,0.06) 0%, rgba(212,175,55,0.12) 50%, rgba(255,149,0,0.04) 100%)',
               }}
             />
-
-            {/* Floating flame */}
             <motion.div
               animate={{ y: [0, -6, 0] }}
               transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
@@ -417,7 +380,6 @@ export default function AkhandJyotScreen() {
             </motion.div>
           </motion.div>
 
-          {/* Personal counter */}
           <motion.div
             variants={fadeIn}
             initial="hidden"
@@ -427,7 +389,6 @@ export default function AkhandJyotScreen() {
             <span className="text-on-surface-variant/70 font-body text-xs uppercase tracking-[0.2em] mb-2">
               {displayName ? `${displayName}'s Total Chants` : 'Your Total Chants'}
             </span>
-
             <motion.span
               key={totalCount}
               initial={{ scale: 1.02 }}
@@ -437,91 +398,44 @@ export default function AkhandJyotScreen() {
             >
               {formatNumber(totalCount)}
             </motion.span>
-
             <span className="text-on-surface-variant/50 text-xs font-body mt-2">
               Journey to 1 Crore — {progress.toFixed(progress < 1 ? 2 : 1)}%
             </span>
           </motion.div>
         </section>
 
-        {/* DEVOTION STATS CARDS */}
         <section className="px-4 mt-2">
           <div className="grid grid-cols-3 gap-3">
-            {/* Today's Chants */}
-            <motion.div
-              variants={cardVariants}
-              initial="initial"
-              animate="animate"
-              className="glass rounded-xl p-3 text-center"
-            >
+            <motion.div variants={cardVariants} initial="initial" animate="animate" className="glass rounded-xl p-3 text-center">
               <Heart className="h-4 w-4 text-primary mx-auto mb-1.5" />
-              <p className="font-body text-lg font-semibold text-on-surface tabular-nums">
-                {todayCount.toLocaleString('en-IN')}
-              </p>
-              <p className="font-body text-[10px] text-on-surface-variant/50 mt-0.5">
-                Today
-              </p>
+              <p className="font-body text-lg font-semibold text-on-surface tabular-nums">{todayCount.toLocaleString('en-IN')}</p>
+              <p className="font-body text-[10px] text-on-surface-variant/50 mt-0.5">Today</p>
             </motion.div>
 
-            {/* Milestones */}
-            <motion.div
-              variants={cardVariants}
-              initial="initial"
-              animate="animate"
-              transition={{ delay: 0.1 }}
-              className="glass rounded-xl p-3 text-center"
-            >
+            <motion.div variants={cardVariants} initial="initial" animate="animate" transition={{ delay: 0.1 }} className="glass rounded-xl p-3 text-center">
               <Trophy className="h-4 w-4 text-primary-container mx-auto mb-1.5" />
-              <p className="font-body text-lg font-semibold text-on-surface tabular-nums">
-                {totalMilestones}
-              </p>
-              <p className="font-body text-[10px] text-on-surface-variant/50 mt-0.5">
-                Milestones
-              </p>
+              <p className="font-body text-lg font-semibold text-on-surface tabular-nums">{totalMilestones}</p>
+              <p className="font-body text-[10px] text-on-surface-variant/50 mt-0.5">Milestones</p>
             </motion.div>
 
-            {/* Next Milestone */}
-            <motion.div
-              variants={cardVariants}
-              initial="initial"
-              animate="animate"
-              transition={{ delay: 0.2 }}
-              className="glass rounded-xl p-3 text-center"
-            >
+            <motion.div variants={cardVariants} initial="initial" animate="animate" transition={{ delay: 0.2 }} className="glass rounded-xl p-3 text-center">
               <Sparkles className="h-4 w-4 text-secondary mx-auto mb-1.5" />
-              <p className="font-body text-lg font-semibold text-on-surface tabular-nums">
-                {nextMilestone ? formatNumber(nextMilestone.threshold) : '—'}
-              </p>
-              <p className="font-body text-[10px] text-on-surface-variant/50 mt-0.5">
-                Next Goal
-              </p>
+              <p className="font-body text-lg font-semibold text-on-surface tabular-nums">{nextMilestone ? formatNumber(nextMilestone.threshold) : '—'}</p>
+              <p className="font-body text-[10px] text-on-surface-variant/50 mt-0.5">Next Goal</p>
             </motion.div>
           </div>
         </section>
 
-        {/* GLOBAL DEVOTION FEED */}
         <section className="px-4 mt-8">
-          <motion.div
-            variants={fadeIn}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: '-40px' }}
-            className="mb-6"
-          >
+          <motion.div variants={fadeIn} initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-40px' }} className="mb-6">
             <div className="flex items-center gap-2 mb-1">
               <Users className="h-5 w-5 text-primary/70" />
-              <h2 className="font-serif text-2xl text-on-surface">
-                Global Devotion
-              </h2>
+              <h2 className="font-serif text-2xl text-on-surface">Global Devotion</h2>
             </div>
-            <p className="text-on-surface-variant/70 text-sm font-body">
-              Devotees around the world chanting together
-            </p>
+            <p className="text-on-surface-variant/70 text-sm font-body">Devotees around the world chanting together</p>
           </motion.div>
 
-          {/* FIXED: Removed max-h and nested scrollbar to allow natural page scrolling */}
           <div className="flex flex-col gap-3 pr-1">
-            {/* FIXED: Removed mode="popLayout" to stop the text overlapping glitch */}
             <AnimatePresence>
               {feedEntries.map((entry) => (
                 <motion.div
@@ -531,200 +445,106 @@ export default function AkhandJyotScreen() {
                   animate="animate"
                   exit={{ opacity: 0, x: -20, transition: { duration: 0.2 } }}
                   layout
-                  className={`group glass rounded-xl px-4 py-3.5 flex items-start gap-3 hover:bg-surface-container-highest/60 transition-colors tactile-press ${
-                    entry.isUser ? 'ring-1 ring-primary/20' : ''
-                  }`}
+                  className={`group glass rounded-xl px-4 py-3.5 flex items-start gap-3 hover:bg-surface-container-highest/60 transition-colors tactile-press ${entry.isUser ? 'ring-1 ring-primary/20' : ''}`}
                 >
-                  {/* Avatar */}
                   <div className={`flex-shrink-0 w-9 h-9 rounded-full ${entry.avatar} flex items-center justify-center`}>
                     {entry.isUser ? (
-                      <span className="font-serif text-sm font-bold text-primary">
-                        {entry.name.charAt(0).toUpperCase()}
-                      </span>
+                      <span className="font-serif text-sm font-bold text-primary">{entry.name.charAt(0).toUpperCase()}</span>
                     ) : (
-                      <span className="font-serif text-sm font-bold text-white/90">
-                        {entry.name.charAt(0)}
-                      </span>
+                      <span className="font-serif text-sm font-bold text-white/90">{entry.name.charAt(0)}</span>
                     )}
                   </div>
-
-                  {/* Content */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-on-surface text-sm font-body leading-relaxed">
-                      {entry.message}
-                    </p>
-                    {/* City tag for community entries */}
+                    <p className="text-on-surface text-sm font-body leading-relaxed">{entry.message}</p>
                     {!entry.isUser && entry.city && (
                       <div className="flex items-center gap-1 mt-1">
                         <MapPin className="h-2.5 w-2.5 text-on-surface-variant/30" />
-                        <span className="text-[10px] text-on-surface-variant/40 font-body">
-                          {entry.city}
-                        </span>
+                        <span className="text-[10px] text-on-surface-variant/40 font-body">{entry.city}</span>
                       </div>
                     )}
                   </div>
-
-                  {/* Timestamp */}
-                  <span className="flex-shrink-0 text-on-surface-variant/40 text-[11px] font-body pt-0.5">
-                    {timeAgo(entry.timestamp)}
-                  </span>
+                  <span className="flex-shrink-0 text-on-surface-variant/40 text-[11px] font-body pt-0.5">{timeAgo(entry.timestamp)}</span>
                 </motion.div>
               ))}
             </AnimatePresence>
           </div>
         </section>
 
-        {/* YOUR JOURNEY SECTION */}
         <section className="px-4 mt-10">
-          <motion.div
-            variants={fadeIn}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: '-40px' }}
-            className="mb-6"
-          >
-            <h2 className="font-serif text-2xl text-on-surface mb-1">
-              {displayName ? `${displayName}'s Journey` : 'Your Journey'}
-            </h2>
-            <p className="text-on-surface-variant/70 text-sm font-body">
-              A log of your devotional progress
-            </p>
+          <motion.div variants={fadeIn} initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-40px' }} className="mb-6">
+            <h2 className="font-serif text-2xl text-on-surface mb-1">{displayName ? `${displayName}'s Journey` : 'Your Journey'}</h2>
+            <p className="text-on-surface-variant/70 text-sm font-body">A log of your devotional progress</p>
           </motion.div>
 
           <div className="flex flex-col gap-3">
-            {/* Today's session */}
             {todayCount > 0 && (
-              <motion.div
-                variants={cardVariants}
-                initial="initial"
-                animate="animate"
-                className="glass rounded-xl px-4 py-3.5 flex items-start gap-3 ring-1 ring-primary/20"
-              >
+              <motion.div variants={cardVariants} initial="initial" animate="animate" className="glass rounded-xl px-4 py-3.5 flex items-start gap-3 ring-1 ring-primary/20">
                 <div className="flex-shrink-0 w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center">
-                  <span className="bg-primary text-on-surface">
-                    <Heart className="h-3.5 w-3.5" />
-                  </span>
+                  <span className="bg-primary text-on-surface"><Heart className="h-3.5 w-3.5" /></span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-on-surface text-sm font-body leading-relaxed">
-                    {displayName
-                      ? `${displayName} chanted ${todayCount.toLocaleString('en-IN')} times today in the name of ${ishtaDevata}`
-                      : `You chanted ${todayCount.toLocaleString('en-IN')} times today in the name of ${ishtaDevata}`
-                    }
+                    {displayName ? `${displayName} chanted ${todayCount.toLocaleString('en-IN')} times today in the name of ${ishtaDevata}` : `You chanted ${todayCount.toLocaleString('en-IN')} times today in the name of ${ishtaDevata}`}
                   </p>
                 </div>
-                <span className="flex-shrink-0 text-on-surface-variant/40 text-[11px] font-body pt-0.5">
-                  Today
-                </span>
+                <span className="flex-shrink-0 text-on-surface-variant/40 text-[11px] font-body pt-0.5">Today</span>
               </motion.div>
             )}
 
-            {/* Lifetime total */}
             {totalCount > 0 && (
-              <motion.div
-                variants={cardVariants}
-                initial="initial"
-                animate="animate"
-                transition={{ delay: 0.1 }}
-                className="glass rounded-xl px-4 py-3.5 flex items-start gap-3 ring-1 ring-primary/20"
-              >
+              <motion.div variants={cardVariants} initial="initial" animate="animate" transition={{ delay: 0.1 }} className="glass rounded-xl px-4 py-3.5 flex items-start gap-3 ring-1 ring-primary/20">
                 <div className="flex-shrink-0 w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center">
-                  <span className="bg-primary text-on-surface">
-                    <Flame className="h-3.5 w-3.5" />
-                  </span>
+                  <span className="bg-primary text-on-surface"><Flame className="h-3.5 w-3.5" /></span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-on-surface text-sm font-body leading-relaxed">
-                    {displayName
-                      ? `${displayName}'s lifetime devotion: ${formatNumber(totalCount)} chants towards 1 Crore`
-                      : `Your lifetime devotion: ${formatNumber(totalCount)} chants towards 1 Crore`
-                    }
+                    {displayName ? `${displayName}'s lifetime devotion: ${formatNumber(totalCount)} chants towards 1 Crore` : `Your lifetime devotion: ${formatNumber(totalCount)} chants towards 1 Crore`}
                   </p>
                 </div>
-                <span className="flex-shrink-0 text-on-surface-variant/40 text-[11px] font-body pt-0.5">
-                  All time
-                </span>
+                <span className="flex-shrink-0 text-on-surface-variant/40 text-[11px] font-body pt-0.5">All time</span>
               </motion.div>
             )}
 
-            {/* Recent milestones */}
-            {[...unlockedMilestones]
-              .sort((a, b) => b - a)
-              .slice(0, 3)
-              .map((threshold) => {
-                const milestone = MILESTONES.find(m => m.threshold === threshold);
-                if (!milestone) return null;
-                return (
-                  <motion.div
-                    key={`my-milestone-${threshold}`}
-                    variants={cardVariants}
-                    initial="initial"
-                    animate="animate"
-                    className="glass rounded-xl px-4 py-3.5 flex items-start gap-3 ring-1 ring-primary/20"
-                  >
-                    <div className="flex-shrink-0 w-9 h-9 rounded-full bg-primary-container/20 flex items-center justify-center">
-                      <span className="bg-primary-container text-on-surface">
-                        <Sparkles className="h-3.5 w-3.5" />
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-on-surface text-sm font-body leading-relaxed">
-                        Unlocked &ldquo;{milestone.name}&rdquo; — {milestone.description}
-                      </p>
-                    </div>
-                    <span className="flex-shrink-0 text-on-surface-variant/40 text-[11px] font-body pt-0.5">
-                      {formatNumber(threshold)}
-                    </span>
-                  </motion.div>
-                );
-              })}
+            {[...unlockedMilestones].sort((a, b) => b - a).slice(0, 3).map((threshold) => {
+              const milestone = MILESTONES.find(m => m.threshold === threshold);
+              if (!milestone) return null;
+              return (
+                <motion.div key={`my-milestone-${threshold}`} variants={cardVariants} initial="initial" animate="animate" className="glass rounded-xl px-4 py-3.5 flex items-start gap-3 ring-1 ring-primary/20">
+                  <div className="flex-shrink-0 w-9 h-9 rounded-full bg-primary-container/20 flex items-center justify-center">
+                    <span className="bg-primary-container text-on-surface"><Sparkles className="h-3.5 w-3.5" /></span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-on-surface text-sm font-body leading-relaxed">Unlocked &ldquo;{milestone.name}&rdquo; — {milestone.description}</p>
+                  </div>
+                  <span className="flex-shrink-0 text-on-surface-variant/40 text-[11px] font-body pt-0.5">{formatNumber(threshold)}</span>
+                </motion.div>
+              );
+            })}
 
-            {/* Empty state */}
             {todayCount === 0 && totalCount === 0 && (
-              <motion.div
-                variants={cardVariants}
-                initial="initial"
-                animate="animate"
-                className="glass rounded-xl px-4 py-3.5 flex items-start gap-3"
-              >
+              <motion.div variants={cardVariants} initial="initial" animate="animate" className="glass rounded-xl px-4 py-3.5 flex items-start gap-3">
                 <div className="flex-shrink-0 w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center">
-                  <span className="bg-primary text-on-surface">
-                    <Heart className="h-3.5 w-3.5" />
-                  </span>
+                  <span className="bg-primary text-on-surface"><Heart className="h-3.5 w-3.5" /></span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-on-surface text-sm font-body leading-relaxed">
-                    {displayName
-                      ? `Welcome, ${displayName}. Begin your chanting journey on the Home screen — your activity will appear here.`
-                      : 'Welcome. Begin your chanting journey on the Home screen — your activity will appear here.'
-                    }
+                    {displayName ? `Welcome, ${displayName}. Begin your chanting journey on the Home screen — your activity will appear here.` : 'Welcome. Begin your chanting journey on the Home screen — your activity will appear here.'}
                   </p>
                 </div>
-                <span className="flex-shrink-0 text-on-surface-variant/40 text-[11px] font-body pt-0.5">
-                  Now
-                </span>
+                <span className="flex-shrink-0 text-on-surface-variant/40 text-[11px] font-body pt-0.5">Now</span>
               </motion.div>
             )}
           </div>
         </section>
 
-        {/* AESTHETIC SPACER */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="flex items-center justify-center gap-2 mt-10 mb-6"
-        >
+        <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.3 }} className="flex items-center justify-center gap-2 mt-10 mb-6">
           <span className="w-1.5 h-1.5 rounded-full bg-primary/50" />
           <span className="w-1.5 h-1.5 rounded-full bg-primary/40" />
           <span className="w-1.5 h-1.5 rounded-full bg-primary/50" />
         </motion.div>
       </main>
 
-      {/* FIXED: Ensure the Profile Dialog actually renders! */}
       <ProfileDialog open={showProfile} onOpenChange={setShowProfile} />
     </div>
   );
 }
-```</AnimatePresence>
