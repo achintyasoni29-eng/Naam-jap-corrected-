@@ -1,222 +1,187 @@
 'use client';
 
-import React, { useState, useCallback, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, User, Sun, Sparkles, Volume2, VolumeX } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
+import { X, LogIn, LogOut, Cloud, CheckCircle2, AlertCircle } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 import { useNaamJapStore } from '@/lib/store';
-import { playBeadClick, playMeditationBell } from '@/lib/sounds';
-
-/* ------------------------------------------------------------------ */
-/*  Profile Dialog — set name, haptic mode, sound mode                 */
-/* ------------------------------------------------------------------ */
 
 interface ProfileDialogProps {
   open: boolean;
-  onOpenChange: (v: boolean) => void;
-  /** If true, this is the first-time welcome flow (shown on initial launch) */
-  isFirstTime?: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
-export default function ProfileDialog({ open, onOpenChange, isFirstTime = false }: ProfileDialogProps) {
-  const userName = useNaamJapStore((s) => s.userName);
-  const hapticMode = useNaamJapStore((s) => s.hapticMode);
-  const soundMode = useNaamJapStore((s) => s.soundMode);
-  const setUserName = useNaamJapStore((s) => s.setUserName);
-  const setHapticMode = useNaamJapStore((s) => s.setHapticMode);
-  const setSoundMode = useNaamJapStore((s) => s.setSoundMode);
+export default function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
+  // Supabase User State
+  const [user, setUser] = useState<any>(null);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
 
-  const [draftName, setDraftName] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
+  // Local App Data
+  const totalCount = useNaamJapStore((s) => s.totalCount);
+  const unlockedMilestones = useNaamJapStore((s) => s.unlockedMilestones);
 
-  // Focus the input when dialog opens
-  React.useEffect(() => {
-    if (open) {
-      // Small delay to let the dialog animation settle
-      const t = setTimeout(() => {
-        if (isFirstTime) {
-          setDraftName('');
-          inputRef.current?.focus();
-        } else {
-          setDraftName(userName === 'Devotee' ? '' : userName);
-        }
-      }, 150);
-      return () => clearTimeout(t);
-    }
-  }, [open, isFirstTime, userName]);
+  // Check if user is logged in when the dialog opens
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
 
-  const handleSave = useCallback(() => {
-    const trimmed = draftName.trim();
-    if (trimmed.length > 0) {
-      setUserName(trimmed);
-    }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Handle Google Login
+  const handleGoogleLogin = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        // This brings them right back to your app after logging in!
+        redirectTo: window.location.origin,
+      }
+    });
+  };
+
+  // Handle Logout
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     onOpenChange(false);
-  }, [draftName, setUserName, onOpenChange]);
+  };
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter') handleSave();
-    },
-    [handleSave]
-  );
+  // Save Local Data to Cloud
+  const syncToCloud = async () => {
+    if (!user) return;
+    setSyncStatus('syncing');
 
-  // Preview sound when tapping a sound mode option
-  const handleSoundPreview = useCallback((mode: 'every_tap' | 'every_108' | 'off') => {
-    if (mode === 'off') return;
-    if (mode === 'every_tap') playBeadClick();
-    if (mode === 'every_108') playMeditationBell();
-    setSoundMode(mode);
-  }, [setSoundMode]);
+    try {
+      const { error } = await supabase
+        .from('user_progress')
+        .upsert({
+          user_id: user.id,
+          total_chants: totalCount,
+          unlocked_milestones: unlockedMilestones,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id' }); // Upsert updates the row if it exists, creates if it doesn't
 
-  const nameInitial = (userName === 'Devotee' ? '' : userName).charAt(0).toUpperCase() || '';
+      if (error) throw error;
+      
+      setSyncStatus('success');
+      setTimeout(() => setSyncStatus('idle'), 3000);
+    } catch (error) {
+      console.error('Error syncing:', error);
+      setSyncStatus('error');
+      setTimeout(() => setSyncStatus('idle'), 3000);
+    }
+  };
+
+  if (!open) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="glass-strong border-outline-variant/15 sm:max-w-sm rounded-2xl p-0 overflow-hidden">
-        {/* ── Decorative top glow ── */}
-        <div className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-[200px] h-[80px] bg-primary/8 blur-[40px] rounded-full" />
+    <AnimatePresence>
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+        {/* Backdrop */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={() => onOpenChange(false)}
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        />
 
-        <DialogHeader className="pt-8 pb-2 px-6">
-          <DialogTitle className="font-serif text-on-surface text-lg text-center">
-            {isFirstTime ? 'Welcome, Seeker' : 'Your Profile'}
-          </DialogTitle>
-          <DialogDescription className="text-on-surface-variant/60 text-sm text-center">
-            {isFirstTime
-              ? 'What shall we call you on your journey?'
-              : 'Update your name and preferences.'}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="px-6 pb-6 space-y-5">
-          {/* ── Avatar preview ── */}
-          <div className="flex justify-center">
-            <motion.div
-              animate={{ scale: [1, 1.04, 1] }}
-              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-              className="w-16 h-16 rounded-full bg-surface-container-high/60 border border-primary/20 flex items-center justify-center"
-            >
-              {draftName.trim() ? (
-                <span className="font-serif text-xl font-semibold text-primary">
-                  {draftName.trim().charAt(0).toUpperCase()}
-                </span>
-              ) : nameInitial ? (
-                <span className="font-serif text-xl font-semibold text-on-surface-variant/60">
-                  {nameInitial}
-                </span>
-              ) : (
-                <User className="size-6 text-on-surface-variant/40" />
-              )}
-            </motion.div>
-          </div>
-
-          {/* ── Name input ── */}
-          <div>
-            <label className="block text-on-surface-variant/70 text-xs font-body uppercase tracking-[0.15em] mb-2 px-1">
-              Your Name
-            </label>
-            <input
-              ref={inputRef}
-              type="text"
-              value={draftName}
-              onChange={(e) => setDraftName(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Enter your name..."
-              maxLength={24}
-              className="w-full h-12 rounded-xl bg-surface-container/60 border border-outline-variant/15 px-4 text-on-surface font-body text-sm placeholder:text-on-surface-variant/30 focus:outline-none focus:border-primary/30 focus:bg-surface-container-high/40 transition-colors"
-            />
-          </div>
-
-          {/* ── Sound mode selector ── */}
-          {!isFirstTime && (
-            <div>
-              <label className="flex items-center gap-1.5 text-on-surface-variant/70 text-xs font-body uppercase tracking-[0.15em] mb-2 px-1">
-                <Volume2 className="size-3.5" />
-                Sound
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                {([
-                  { value: 'every_tap' as const, label: 'Every Tap', icon: '🔔' },
-                  { value: 'every_108' as const, label: 'Every 108', icon: '🪷' },
-                  { value: 'off' as const, label: 'Off', icon: '🔇' },
-                ]).map((option) => (
-                  <button
-                    key={`sound-${option.value}`}
-                    onClick={() => handleSoundPreview(option.value)}
-                    className={`rounded-lg py-2.5 px-2 text-center text-xs font-body font-medium transition-all cursor-pointer ${
-                      soundMode === option.value
-                        ? 'bg-primary/15 text-primary border border-primary/25'
-                        : 'bg-surface-container/40 text-on-surface-variant/60 border border-outline-variant/10 hover:bg-surface-container-high/40'
-                    }`}
-                  >
-                    <span className="block text-base mb-0.5">{option.icon}</span>
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ── Haptic mode selector (only on non-first-time) ── */}
-          {!isFirstTime && (
-            <div>
-              <label className="block text-on-surface-variant/70 text-xs font-body uppercase tracking-[0.15em] mb-2 px-1">
-                Haptic Feedback
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                {([
-                  { value: 'every_tap' as const, label: 'Every Tap', icon: '📳' },
-                  { value: 'every_108' as const, label: 'Every 108', icon: '🪷' },
-                  { value: 'off' as const, label: 'Off', icon: '🔇' },
-                ]).map((option) => (
-                  <button
-                    key={`haptic-${option.value}`}
-                    onClick={() => setHapticMode(option.value)}
-                    className={`rounded-lg py-2.5 px-2 text-center text-xs font-body font-medium transition-all cursor-pointer ${
-                      hapticMode === option.value
-                        ? 'bg-primary/15 text-primary border border-primary/25'
-                        : 'bg-surface-container/40 text-on-surface-variant/60 border border-outline-variant/10 hover:bg-surface-container-high/40'
-                    }`}
-                  >
-                    <span className="block text-base mb-0.5">{option.icon}</span>
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ── Save button ── */}
+        {/* Dialog Content */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 20 }}
+          className="relative w-full max-w-md glass rounded-3xl p-6 shadow-2xl overflow-hidden"
+        >
+          {/* Close Button */}
           <button
-            onClick={handleSave}
-            disabled={isFirstTime && draftName.trim().length === 0}
-            className="w-full h-12 rounded-xl gold-gradient text-on-primary font-body font-semibold text-sm disabled:opacity-30 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+            onClick={() => onOpenChange(false)}
+            className="absolute top-4 right-4 p-2 rounded-full hover:bg-surface-container-highest/40 transition-colors text-on-surface-variant"
           >
-            {isFirstTime ? (
-              <>
-                <Sparkles className="size-4" />
-                Begin Your Journey
-              </>
-            ) : (
-              <>
-                <Check className="size-4" />
-                Save
-              </>
-            )}
+            <X className="h-5 w-5" />
           </button>
 
-          {isFirstTime && (
-            <p className="text-on-surface-variant/40 text-[11px] text-center font-body">
-              You can always change this later from your profile.
-            </p>
+          <h2 className="font-serif text-2xl text-on-surface mb-6">Your Profile</h2>
+
+          {/* IF USER IS NOT LOGGED IN */}
+          {!user ? (
+            <div className="flex flex-col items-center justify-center py-6 text-center">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <Cloud className="h-8 w-8 text-primary" />
+              </div>
+              <h3 className="font-body font-semibold text-lg text-on-surface mb-2">Secure Your Journey</h3>
+              <p className="text-sm font-body text-on-surface-variant/70 mb-8 px-4">
+                Sign in to back up your total chants and milestones safely to the cloud. Never lose your progress.
+              </p>
+              
+              <button
+                onClick={handleGoogleLogin}
+                className="w-full flex items-center justify-center gap-3 py-3.5 px-4 rounded-xl bg-white text-black font-body font-semibold text-sm hover:bg-gray-100 transition-colors active:scale-95"
+              >
+                <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" />
+                Sign in with Google
+              </button>
+            </div>
+          ) : (
+            /* IF USER IS LOGGED IN */
+            <div className="space-y-6">
+              {/* User Identity Card */}
+              <div className="flex items-center gap-4 p-4 rounded-2xl bg-surface-container-highest/30 ring-1 ring-white/5">
+                <img 
+                  src={user.user_metadata?.avatar_url || 'https://via.placeholder.com/150'} 
+                  alt="Profile" 
+                  className="w-12 h-12 rounded-full border border-primary/20"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold font-body text-on-surface truncate">
+                    {user.user_metadata?.full_name || 'Devotee'}
+                  </p>
+                  <p className="text-xs font-body text-on-surface-variant truncate">
+                    {user.email}
+                  </p>
+                </div>
+              </div>
+
+              {/* Cloud Sync Section */}
+              <div className="p-5 rounded-2xl border border-primary/20 bg-primary/5">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <p className="text-sm font-semibold font-body text-primary mb-1">Cloud Backup</p>
+                    <p className="text-xs font-body text-on-surface-variant/70">
+                      Save your {totalCount.toLocaleString('en-IN')} chants safely to the heavens.
+                    </p>
+                  </div>
+                  <Cloud className="h-5 w-5 text-primary opacity-70" />
+                </div>
+                
+                <button
+                  onClick={syncToCloud}
+                  disabled={syncStatus === 'syncing'}
+                  className="w-full py-3 rounded-xl gold-gradient text-on-primary font-body font-semibold text-sm tracking-wide transition-all active:scale-95 flex items-center justify-center gap-2"
+                >
+                  {syncStatus === 'idle' && 'Sync Data Now'}
+                  {syncStatus === 'syncing' && 'Syncing...'}
+                  {syncStatus === 'success' && <><CheckCircle2 className="w-4 h-4" /> Successfully Saved</>}
+                  {syncStatus === 'error' && <><AlertCircle className="w-4 h-4" /> Try Again</>}
+                </button>
+              </div>
+
+              {/* Logout Button */}
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-outline-variant/30 text-on-surface-variant font-body font-semibold text-sm hover:bg-surface-container-highest/40 transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                Sign Out
+              </button>
+            </div>
           )}
-        </div>
-      </DialogContent>
-    </Dialog>
+        </motion.div>
+      </div>
+    </AnimatePresence>
   );
 }
