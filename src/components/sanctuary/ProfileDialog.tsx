@@ -34,14 +34,17 @@ export default function ProfileDialog({ open, onOpenChange }: ProfileDialogProps
   }, []);
 
   // Handle Google Login
-  const handleGoogleLogin = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        // This brings them right back to your app after logging in!
-        redirectTo: window.location.origin,
-      }
-    });
+  const handleGoogleLogin = async (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevents accidental form submissions
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        // By removing 'options', Supabase automatically defaults to your exact Dashboard Site URL!
+      });
+      if (error) alert("Login Error: " + error.message);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   // Handle Logout
