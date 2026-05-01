@@ -20,14 +20,17 @@ export default function NaamJapApp() {
   const currentTab = useNaamJapStore((s) => s.currentTab);
   const setCurrentTab = useNaamJapStore((s) => s.setCurrentTab);
   const hasHydrated = useNaamJapStore((s) => s._hasHydrated);
+  
+  // Bring these in for the Auto-Sync
+  const totalCount = useNaamJapStore((s) => s.totalCount);
+  const unlockedMilestones = useNaamJapStore((s) => s.unlockedMilestones);
 
-  // SILENT CLOUD LISTENER: Checks the cloud and downloads data if it's higher than local
+  // 1. SILENT CLOUD LISTENER (Pulls data down on login)
   useEffect(() => {
     const fetchCloudData = async (userId: string) => {
       const { data, error } = await supabase.from('user_progress').select('*').eq('user_id', userId).single();
       if (data && !error) {
          const currentLocalTotal = useNaamJapStore.getState().totalCount;
-         // Only overwrite if the cloud has more chants (prevents accidental wiping if offline)
          if (data.total_chants > currentLocalTotal) {
             useNaamJapStore.getState().syncFromCloud(data.total_chants, data.unlocked_milestones || []);
          }
@@ -44,6 +47,26 @@ export default function NaamJapApp() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // 2. INVISIBLE AUTO-SYNC (Pushes data up automatically)
+  useEffect(() => {
+    // Prevent accidental wipe on fresh load
+    if (totalCount === 0) return;
+
+    const syncTimer = setTimeout(async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        await supabase.from('user_progress').upsert({
+          user_id: session.user.id,
+          total_chants: totalCount,
+          unlocked_milestones: unlockedMilestones,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id' });
+      }
+    }, 5000); // Syncs silently 5 seconds after they stop chanting
+
+    return () => clearTimeout(syncTimer);
+  }, [totalCount, unlockedMilestones]);
 
   const [forceReady, setForceReady] = useState(false);
   useEffect(() => {
