@@ -24,7 +24,7 @@ export default function NaamJapApp() {
   const totalCount = useNaamJapStore((s) => s.totalCount);
   const unlockedMilestones = useNaamJapStore((s) => s.unlockedMilestones);
 
-  // 1. SILENT CLOUD LISTENER (Pulls data down on login)
+  // 1. SILENT CLOUD LISTENER (Pulls data down on login & grabs Google Name)
   useEffect(() => {
     const fetchCloudData = async (userId: string) => {
       const { data, error } = await supabase.from('user_progress').select('*').eq('user_id', userId).single();
@@ -36,12 +36,29 @@ export default function NaamJapApp() {
       }
     };
 
+    // Grab their Google Name to fix the '?' icon
+    const syncProfileName = (user: any) => {
+      if (!user) return;
+      const currentName = useNaamJapStore.getState().userName;
+      if (currentName === 'Devotee' || currentName === '') {
+        // Use Google name, or fallback to the first part of their email
+        const fetchedName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Devotee';
+        useNaamJapStore.getState().setUserName(fetchedName);
+      }
+    };
+
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) fetchCloudData(session.user.id);
+      if (session?.user) {
+        fetchCloudData(session.user.id);
+        syncProfileName(session.user);
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) fetchCloudData(session.user.id);
+      if (event === 'SIGNED_IN' && session?.user) {
+        fetchCloudData(session.user.id);
+        syncProfileName(session.user);
+      }
     });
 
     return () => subscription.unsubscribe();
