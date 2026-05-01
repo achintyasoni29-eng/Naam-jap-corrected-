@@ -14,8 +14,11 @@ interface ProfileDialogProps {
 export default function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
   const [user, setUser] = useState<any>(null);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
+  
+  // Pulling from our Zustand memory store
   const totalCount = useNaamJapStore((s) => s.totalCount);
   const unlockedMilestones = useNaamJapStore((s) => s.unlockedMilestones);
+  const clearUserData = useNaamJapStore((s) => s.clearUserData); // The new wipe function!
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setUser(session?.user ?? null));
@@ -23,14 +26,11 @@ export default function ProfileDialog({ open, onOpenChange }: ProfileDialogProps
     return () => subscription.unsubscribe();
   }, []);
 
-const handleGoogleLogin = async () => {
-    // Check if the user is inside our Android app by looking for our secret tag
+  const handleGoogleLogin = async () => {
     const isApp = typeof window !== 'undefined' && navigator.userAgent.includes('NaamJapApp');
-    
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { 
-        // If in the app, use the trap door. If on the web, use the normal URL.
         redirectTo: isApp ? 'naamjap://auth' : 'https://naam-jap-corrected.vercel.app' 
       }
     });
@@ -38,6 +38,7 @@ const handleGoogleLogin = async () => {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    clearUserData(); // This wipes the phone's local memory so a new user starts fresh
     onOpenChange(false);
   };
 
