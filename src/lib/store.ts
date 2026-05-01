@@ -53,8 +53,10 @@ interface NaamJapState {
   soundMode: "every_108" | "every_tap" | "off";
   currentTab: "sanctuary" | "pilgrimage" | "akhand-jyot";
 
-  // Milestones
+  // Milestones & Onboarding
   unlockedMilestones: number[];
+  hasSeenOnboarding: boolean;
+  dailyGoal: number;
 
   // Profile
   userName: string;
@@ -68,6 +70,8 @@ interface NaamJapState {
   setCurrentTab: (tab: "sanctuary" | "pilgrimage" | "akhand-jyot") => void;
   unlockMilestone: (threshold: number) => void;
   setUserName: (name: string) => void;
+  setHasSeenOnboarding: (status: boolean) => void;
+  setDailyGoal: (goal: number) => void;
   resetSession: () => void;
   getProgress: () => number; // 0-1
   getNextMilestone: () => typeof MILESTONES[number] | null;
@@ -108,6 +112,10 @@ export const useNaamJapStore = create<NaamJapState>()(
       currentTab: "sanctuary",
       unlockedMilestones: [],
       userName: "Devotee",
+      
+      // New Onboarding States
+      hasSeenOnboarding: false,
+      dailyGoal: 108,
 
       setHasHydrated: () => set({ _hasHydrated: true }),
 
@@ -177,6 +185,10 @@ export const useNaamJapStore = create<NaamJapState>()(
       },
 
       setUserName: (name) => set({ userName: name }),
+      
+      setHasSeenOnboarding: (status) => set({ hasSeenOnboarding: status }),
+      
+      setDailyGoal: (goal) => set({ dailyGoal: goal }),
 
       resetSession: () => {
         set({
