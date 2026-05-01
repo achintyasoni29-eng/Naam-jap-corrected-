@@ -149,17 +149,7 @@ export default function SanctuaryScreen() {
 
   const [scanOpen, setScanOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const profileDialogShownRef = useRef(false);
-
-  // Auto-open profile dialog on first visit (name still default)
-  const isFirstTime = userName === 'Devotee';
-  useEffect(() => {
-    if (isFirstTime && !profileDialogShownRef.current) {
-      profileDialogShownRef.current = true;
-      const t = setTimeout(() => setProfileOpen(true), 800);
-      return () => clearTimeout(t);
-    }
-  }, [isFirstTime]);
+  
   const [ripples, setRipples] = useState<Array<{ id: number }>>([]);
   const rippleIdRef = useRef(0);
 
@@ -172,7 +162,6 @@ export default function SanctuaryScreen() {
   );
 
   const dashProps = useMemo(() => getDashProps(progress), [progress]);
-
   const orbPos = useMemo(() => samplePath(progress), [progress]);
 
   // Tap handler
@@ -204,7 +193,7 @@ export default function SanctuaryScreen() {
       </div>
 
       {/* ══════════════════════════════════════════
-          1. HEADER (ADDED pt-12 FOR STATUS BAR)
+          1. HEADER
       ══════════════════════════════════════════ */}
       <header className="relative z-10 glass border-b border-outline-variant/10 pt-12">
         <div className="flex items-center justify-between px-5 pb-3 max-w-lg mx-auto">
@@ -415,7 +404,7 @@ export default function SanctuaryScreen() {
       <div className="flex-1" />
 
       {/* ══════════════════════════════════════════
-          5. DEVOTION FOOTER (ADDED pb-16 FOR GESTURE BAR)
+          5. DEVOTION FOOTER
       ══════════════════════════════════════════ */}
       <footer className="relative z-10 pb-16 pt-4 px-5">
         <div className="flex flex-col items-center gap-3">
@@ -436,10 +425,12 @@ export default function SanctuaryScreen() {
       </footer>
 
       {/* ══════════════════════════════════════════
-          SCAN COUNTER DIALOG
+          DIALOGS
       ══════════════════════════════════════════ */}
       <ScanCounterDialog open={scanOpen} onOpenChange={setScanOpen} />
-      <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} isFirstTime={isFirstTime} />
+      
+      {/* THE FIX IS HERE: No more automatic 'isFirstTime' trigger */}
+      <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
     </main>
   );
 }
