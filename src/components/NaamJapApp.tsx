@@ -21,7 +21,6 @@ export default function NaamJapApp() {
   const setCurrentTab = useNaamJapStore((s) => s.setCurrentTab);
   const hasHydrated = useNaamJapStore((s) => s._hasHydrated);
   
-  // Bring these in for the Auto-Sync
   const totalCount = useNaamJapStore((s) => s.totalCount);
   const unlockedMilestones = useNaamJapStore((s) => s.unlockedMilestones);
 
@@ -48,12 +47,12 @@ export default function NaamJapApp() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // 2. INVISIBLE AUTO-SYNC (Pushes data up automatically)
+  // 2. BULLETPROOF AUTO-SYNC (Pushes data up reliably)
   useEffect(() => {
-    // Prevent accidental wipe on fresh load
     if (totalCount === 0) return;
 
-    const syncTimer = setTimeout(async () => {
+    // The function that actually saves the data
+    const forceSyncData = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         await supabase.from('user_progress').upsert({
@@ -63,9 +62,25 @@ export default function NaamJapApp() {
           updated_at: new Date().toISOString(),
         }, { onConflict: 'user_id' });
       }
-    }, 5000); // Syncs silently 5 seconds after they stop chanting
+    };
 
-    return () => clearTimeout(syncTimer);
+    // Trigger A: Wait 2 seconds after the last tap
+    const syncTimer = setTimeout(() => {
+      forceSyncData();
+    }, 2000);
+
+    // Trigger B: Instantly save if the app is minimized or closed
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        forceSyncData();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearTimeout(syncTimer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [totalCount, unlockedMilestones]);
 
   const [forceReady, setForceReady] = useState(false);
