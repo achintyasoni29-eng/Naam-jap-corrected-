@@ -1,8 +1,9 @@
 'use client';
 
+import OnboardingOverlay from './sanctuary/OnboardingOverlay';
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Home, Map, Flame, Loader2 } from 'lucide-react';
+import { Home, Map, Flame } from 'lucide-react';
 import { useNaamJapStore } from '@/lib/store';
 import SanctuaryScreen from '@/components/sanctuary/SanctuaryScreen';
 import PilgrimageScreen from '@/components/pilgrimage/PilgrimageScreen';
@@ -44,9 +45,12 @@ export default function NaamJapApp() {
   }
 
   return (
-    // STRICT MOBILE BOUNDARIES ADDED HERE
+    // STRICT MOBILE BOUNDARIES
     <div className="relative flex flex-col min-h-[100dvh] w-full max-w-[100vw] bg-surface-container-lowest overflow-x-hidden">
       
+      {/* 1. THE BRAND NEW ONBOARDING OVERLAY */}
+      <OnboardingOverlay />
+
       {/* Screen Content */}
       <AnimatePresence mode="wait">
         {currentTab === 'sanctuary' && (
@@ -56,7 +60,7 @@ export default function NaamJapApp() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
-            className="flex-1 w-full min-h-[100dvh] pb-28" // ADDED pb-28 SO NAV BAR DOESN'T HIDE CONTENT
+            className="flex-1 w-full min-h-[100dvh] pb-28"
           >
             <SanctuaryScreen />
           </motion.div>
