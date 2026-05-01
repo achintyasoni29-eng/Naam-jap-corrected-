@@ -23,10 +23,16 @@ export default function ProfileDialog({ open, onOpenChange }: ProfileDialogProps
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleGoogleLogin = async () => {
+const handleGoogleLogin = async () => {
+    // Check if the user is inside our Android app by looking for our secret tag
+    const isApp = typeof window !== 'undefined' && navigator.userAgent.includes('NaamJapApp');
+    
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: 'https://naam-jap-corrected.vercel.app' }
+      options: { 
+        // If in the app, use the trap door. If on the web, use the normal URL.
+        redirectTo: isApp ? 'naamjap://auth' : 'https://naam-jap-corrected.vercel.app' 
+      }
     });
   };
 
