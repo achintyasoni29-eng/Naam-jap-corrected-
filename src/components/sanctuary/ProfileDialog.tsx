@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, LogIn, LogOut, Cloud, CheckCircle2, AlertCircle } from 'lucide-react';
+import { X, LogOut, Cloud, CheckCircle2, AlertCircle, Mail, KeyRound } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useNaamJapStore } from '@/lib/store';
 
@@ -12,15 +12,19 @@ interface ProfileDialogProps {
 }
 
 export default function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
-  // Supabase User State
   const [user, setUser] = useState<any>(null);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
+  
+  // Auth States
+  const [email, setEmail] = useState('');
+  const [otp, setOtp] = useState('');
+  const [step, setStep] = useState<'email' | 'otp'>('email');
+  const [loading, setLoading] = useState(false);
+  const [authError, setAuthError] = useState('');
 
-  // Local App Data
   const totalCount = useNaamJapStore((s) => s.totalCount);
   const unlockedMilestones = useNaamJapStore((s) => s.unlockedMilestones);
 
-  // Check if user is logged in when the dialog opens
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -33,27 +37,52 @@ export default function ProfileDialog({ open, onOpenChange }: ProfileDialogProps
     return () => subscription.unsubscribe();
   }, []);
 
-  // Handle Google Login
-  const handleGoogleLogin = async (e: React.MouseEvent) => {
-    e.preventDefault(); // Prevents accidental form submissions
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        // By removing 'options', Supabase automatically defaults to your exact Dashboard Site URL!
-      });
-      if (error) alert("Login Error: " + error.message);
-    } catch (err) {
-      console.error(err);
+  // Send the 6-digit code
+  const handleSendCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setAuthError('');
+    
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email,
+    });
+
+    if (error) {
+      setAuthError(error.message);
+    } else {
+      setStep('otp');
     }
+    setLoading(false);
   };
 
-  // Handle Logout
+  // Verify the 6-digit code
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setAuthError('');
+
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token: otp,
+      type: 'email',
+    });
+
+    if (error) {
+      setAuthError(error.message);
+    } else {
+      // Success! The useEffect will automatically catch the new user
+      setStep('email'); 
+      setEmail('');
+      setOtp('');
+    }
+    setLoading(false);
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     onOpenChange(false);
   };
 
-  // Save Local Data to Cloud
   const syncToCloud = async () => {
     if (!user) return;
     setSyncStatus('syncing');
@@ -66,7 +95,7 @@ export default function ProfileDialog({ open, onOpenChange }: ProfileDialogProps
           total_chants: totalCount,
           unlocked_milestones: unlockedMilestones,
           updated_at: new Date().toISOString(),
-        }, { onConflict: 'user_id' }); // Upsert updates the row if it exists, creates if it doesn't
+        }, { onConflict: 'user_id' });
 
       if (error) throw error;
       
@@ -84,7 +113,6 @@ export default function ProfileDialog({ open, onOpenChange }: ProfileDialogProps
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
-        {/* Backdrop */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -93,14 +121,12 @@ export default function ProfileDialog({ open, onOpenChange }: ProfileDialogProps
           className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         />
 
-        {/* Dialog Content */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
           className="relative w-full max-w-md glass rounded-3xl p-6 shadow-2xl overflow-hidden"
         >
-          {/* Close Button */}
           <button
             onClick={() => onOpenChange(false)}
             className="absolute top-4 right-4 p-2 rounded-full hover:bg-surface-container-highest/40 transition-colors text-on-surface-variant"
@@ -110,38 +136,78 @@ export default function ProfileDialog({ open, onOpenChange }: ProfileDialogProps
 
           <h2 className="font-serif text-2xl text-on-surface mb-6">Your Profile</h2>
 
-          {/* IF USER IS NOT LOGGED IN */}
           {!user ? (
-            <div className="flex flex-col items-center justify-center py-6 text-center">
+            <div className="flex flex-col items-center justify-center py-2 text-center">
               <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                 <Cloud className="h-8 w-8 text-primary" />
               </div>
               <h3 className="font-body font-semibold text-lg text-on-surface mb-2">Secure Your Journey</h3>
-              <p className="text-sm font-body text-on-surface-variant/70 mb-8 px-4">
-                Sign in to back up your total chants and milestones safely to the cloud. Never lose your progress.
+              <p className="text-sm font-body text-on-surface-variant/70 mb-6 px-4">
+                Enter your email to receive a secure login code. Never lose your progress.
               </p>
               
-              <button
-                onClick={handleGoogleLogin}
-                className="w-full flex items-center justify-center gap-3 py-3.5 px-4 rounded-xl bg-white text-black font-body font-semibold text-sm hover:bg-gray-100 transition-colors active:scale-95"
-              >
-                <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" />
-                Sign in with Google
-              </button>
+              {step === 'email' ? (
+                <form onSubmit={handleSendCode} className="w-full space-y-4">
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-on-surface-variant/50" />
+                    <input 
+                      type="email" 
+                      required
+                      placeholder="devotee@example.com" 
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full bg-surface-container-highest/30 border border-outline-variant/30 rounded-xl py-3 pl-10 pr-4 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    />
+                  </div>
+                  {authError && <p className="text-xs text-red-400">{authError}</p>}
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full flex items-center justify-center py-3.5 px-4 rounded-xl gold-gradient text-on-primary font-body font-semibold text-sm transition-transform active:scale-95 disabled:opacity-70"
+                  >
+                    {loading ? 'Sending Code...' : 'Send Login Code'}
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleVerifyCode} className="w-full space-y-4">
+                  <div className="relative">
+                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-on-surface-variant/50" />
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="Enter 6-digit code" 
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value)}
+                      className="w-full bg-surface-container-highest/30 border border-outline-variant/30 rounded-xl py-3 pl-10 pr-4 text-on-surface tracking-widest focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    />
+                  </div>
+                  {authError && <p className="text-xs text-red-400">{authError}</p>}
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full flex items-center justify-center py-3.5 px-4 rounded-xl gold-gradient text-on-primary font-body font-semibold text-sm transition-transform active:scale-95 disabled:opacity-70"
+                  >
+                    {loading ? 'Verifying...' : 'Verify Code & Login'}
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => setStep('email')}
+                    className="text-xs text-primary mt-2 hover:underline"
+                  >
+                    Use a different email
+                  </button>
+                </form>
+              )}
             </div>
           ) : (
-            /* IF USER IS LOGGED IN */
             <div className="space-y-6">
-              {/* User Identity Card */}
               <div className="flex items-center gap-4 p-4 rounded-2xl bg-surface-container-highest/30 ring-1 ring-white/5">
-                <img 
-                  src={user.user_metadata?.avatar_url || 'https://via.placeholder.com/150'} 
-                  alt="Profile" 
-                  className="w-12 h-12 rounded-full border border-primary/20"
-                />
+                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-lg">
+                  {user.email?.charAt(0).toUpperCase()}
+                </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold font-body text-on-surface truncate">
-                    {user.user_metadata?.full_name || 'Devotee'}
+                    Devotee
                   </p>
                   <p className="text-xs font-body text-on-surface-variant truncate">
                     {user.email}
@@ -149,7 +215,6 @@ export default function ProfileDialog({ open, onOpenChange }: ProfileDialogProps
                 </div>
               </div>
 
-              {/* Cloud Sync Section */}
               <div className="p-5 rounded-2xl border border-primary/20 bg-primary/5">
                 <div className="flex items-start justify-between mb-4">
                   <div>
@@ -173,7 +238,6 @@ export default function ProfileDialog({ open, onOpenChange }: ProfileDialogProps
                 </button>
               </div>
 
-              {/* Logout Button */}
               <button
                 onClick={handleLogout}
                 className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-outline-variant/30 text-on-surface-variant font-body font-semibold text-sm hover:bg-surface-container-highest/40 transition-colors"
