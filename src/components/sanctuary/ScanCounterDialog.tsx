@@ -46,10 +46,12 @@ function ScanCounterDialog({ open, onOpenChange }: { open: boolean; onOpenChange
       if (data.success && data.number > 0) {
         setManualCount(data.number.toString());
       } else {
-        setError(data.error || "AI couldn't read the LCD display.");
+        // More descriptive error if AI fails to find a number
+        setError(data.error || "Couldn't clearly see the numbers. Please enter them manually below.");
       }
     } catch (err) {
-      setError("Network timeout. The image might still be too large.");
+      // Graceful degradation: If Vercel still times out, we just let them type it in.
+      setError("AI took too long to respond. Please enter your count manually below.");
     }
     setPhase('verify');
   };
@@ -65,14 +67,16 @@ function ScanCounterDialog({ open, onOpenChange }: { open: boolean; onOpenChange
 
     setError(null);
 
-    // WE BYPASS ANDROID RESTRICTIONS BY COMPRESSING INSTANTLY
+    // ⚡ THE FIX: MICRO-COMPRESSION ⚡
     const reader = new FileReader();
     reader.onload = (event) => {
       const img = new Image();
       img.src = event.target?.result as string;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 800; // Shrink to 800px wide
+        
+        // Shrink to 400px (More than enough for AI to read blocky LCD text)
+        const MAX_WIDTH = 400; 
         const scaleSize = MAX_WIDTH / img.width;
         canvas.width = MAX_WIDTH;
         canvas.height = img.height * scaleSize;
@@ -80,12 +84,10 @@ function ScanCounterDialog({ open, onOpenChange }: { open: boolean; onOpenChange
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
         
-        // Output highly compressed image
-        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6); 
+        // Compress aggressively to 40% quality. Turns 5MB into ~15KB!
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.4); 
         
-        // Use the safe base64 string for the preview image so it doesn't break!
         setPreviewUrl(compressedBase64); 
-        
         processImageWithAI(compressedBase64);
       };
     };
@@ -172,14 +174,14 @@ function ScanCounterDialog({ open, onOpenChange }: { open: boolean; onOpenChange
                 
                 <AnimatePresence>
                   {error && (
-                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="flex items-start gap-2 text-error/90 text-xs font-body w-full justify-center">
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="flex items-start gap-2 text-error/90 text-xs font-body w-full justify-center mt-2">
                       <AlertCircle className="size-4 shrink-0" />
                       <span className="text-center">{error}</span>
                     </motion.div>
                   )}
                 </AnimatePresence>
 
-                {/* --- NEW ANTI-CHEAT BANNER --- */}
+                {/* --- ANTI-CHEAT BANNER --- */}
                 <div className="w-full bg-surface-container-high/40 border border-outline-variant/20 rounded-lg p-3 mt-2 flex items-start gap-2">
                   <AlertCircle className="size-4 text-primary shrink-0 mt-0.5" />
                   <p className="text-xs text-on-surface-variant/80 font-body leading-relaxed text-left">
