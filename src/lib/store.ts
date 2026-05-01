@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-// Milestones definition
 export const MILESTONES = [
   { threshold: 108, name: "First Circle", description: "Your first mala is complete", icon: "filter_vintage" },
   { threshold: 1008, name: "Awakening", description: "The seed of devotion sprouts", icon: "spa" },
@@ -39,29 +38,19 @@ interface SessionState {
 }
 
 interface NaamJapState {
-  // Hydration guard - prevents SSR/client mismatch
   _hasHydrated: boolean;
-
-  // Counter
   totalCount: number;
   session: SessionState;
-
-  // Settings
   ishtaDevata: string;
   devataHue: DevataHue;
   hapticMode: "every_108" | "every_tap" | "off";
   soundMode: "every_108" | "every_tap" | "off";
   currentTab: "sanctuary" | "pilgrimage" | "akhand-jyot";
-
-  // Milestones & Onboarding
   unlockedMilestones: number[];
   hasSeenOnboarding: boolean;
   dailyGoal: number;
-
-  // Profile
   userName: string;
 
-  // Actions
   incrementCount: (amount?: number) => void;
   addScannedCount: (count: number) => void;
   setIshtaDevata: (name: string, hue: DevataHue) => void;
@@ -73,12 +62,16 @@ interface NaamJapState {
   setHasSeenOnboarding: (status: boolean) => void;
   setDailyGoal: (goal: number) => void;
   resetSession: () => void;
-  getProgress: () => number; // 0-1
+  getProgress: () => number;
   getNextMilestone: () => typeof MILESTONES[number] | null;
   getUnlockedMilestones: () => typeof MILESTONES;
   getTodayCount: () => number;
   getTotalDisplay: () => string;
   setHasHydrated: () => void;
+  
+  // THE TWO NEW FIXES
+  syncFromCloud: (total: number, milestones: number[]) => void;
+  clearUserData: () => void;
 }
 
 const GOAL = 10_000_000;
@@ -100,11 +93,7 @@ export const useNaamJapStore = create<NaamJapState>()(
     (set, get) => ({
       _hasHydrated: false,
       totalCount: 0,
-      session: {
-        todayCount: 0,
-        sessionStart: null,
-        lastTapTime: 0,
-      },
+      session: { todayCount: 0, sessionStart: null, lastTapTime: 0 },
       ishtaDevata: "Sri Ram",
       devataHue: "saffron",
       hapticMode: "every_108",
@@ -112,8 +101,6 @@ export const useNaamJapStore = create<NaamJapState>()(
       currentTab: "sanctuary",
       unlockedMilestones: [],
       userName: "Devotee",
-      
-      // New Onboarding States
       hasSeenOnboarding: false,
       dailyGoal: 108,
 
@@ -123,7 +110,6 @@ export const useNaamJapStore = create<NaamJapState>()(
         const state = get();
         const now = Date.now();
         const todayStart = startOfDay();
-
         set({
           totalCount: state.totalCount + amount,
           session: {
@@ -132,24 +118,15 @@ export const useNaamJapStore = create<NaamJapState>()(
             lastTapTime: now,
           },
         });
-
-        // Check milestone unlocks
         const newTotal = state.totalCount + amount;
         MILESTONES.forEach(m => {
           if (newTotal >= m.threshold && !state.unlockedMilestones.includes(m.threshold)) {
             get().unlockMilestone(m.threshold);
           }
         });
-
-        // Haptic feedback
         if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-          if (state.hapticMode === "every_tap") {
-            navigator.vibrate(10);
-          } else if (state.hapticMode === "every_108") {
-            if ((state.totalCount + amount) % 108 === 0) {
-              navigator.vibrate([20, 50, 20]);
-            }
-          }
+          if (state.hapticMode === "every_tap") navigator.vibrate(10);
+          else if (state.hapticMode === "every_108" && (state.totalCount + amount) % 108 === 0) navigator.vibrate([20, 50, 20]);
         }
       },
 
@@ -158,74 +135,43 @@ export const useNaamJapStore = create<NaamJapState>()(
           const state = get();
           set({
             totalCount: state.totalCount + count,
-            session: {
-              ...state.session,
-              todayCount: state.session.todayCount + count,
-              lastTapTime: Date.now(),
-            },
+            session: { ...state.session, todayCount: state.session.todayCount + count, lastTapTime: Date.now() },
           });
         }
       },
 
-      setIshtaDevata: (name: string, hue: DevataHue) => {
-        set({ ishtaDevata: name, devataHue: hue });
-      },
-
+      setIshtaDevata: (name, hue) => set({ ishtaDevata: name, devataHue: hue }),
       setHapticMode: (mode) => set({ hapticMode: mode }),
-
       setSoundMode: (mode) => set({ soundMode: mode }),
-
       setCurrentTab: (tab) => set({ currentTab: tab }),
-
-      unlockMilestone: (threshold: number) => {
+      unlockMilestone: (threshold) => {
         const state = get();
-        if (!state.unlockedMilestones.includes(threshold)) {
-          set({ unlockedMilestones: [...state.unlockedMilestones, threshold] });
-        }
+        if (!state.unlockedMilestones.includes(threshold)) set({ unlockedMilestones: [...state.unlockedMilestones, threshold] });
       },
-
       setUserName: (name) => set({ userName: name }),
-      
       setHasSeenOnboarding: (status) => set({ hasSeenOnboarding: status }),
-      
       setDailyGoal: (goal) => set({ dailyGoal: goal }),
-
-      resetSession: () => {
-        set({
-          session: {
-            todayCount: 0,
-            sessionStart: null,
-            lastTapTime: 0,
-          },
-        });
-      },
-
+      resetSession: () => set({ session: { todayCount: 0, sessionStart: null, lastTapTime: 0 } }),
       getProgress: () => Math.min(1, get().totalCount / GOAL),
-
-      getNextMilestone: () => {
-        const state = get();
-        return MILESTONES.find(m => state.totalCount < m.threshold) ?? null;
-      },
-
-      getUnlockedMilestones: () => {
-        const state = get();
-        return MILESTONES.filter(m => state.unlockedMilestones.includes(m.threshold));
-      },
-
-      getTodayCount: () => {
-        const state = get();
-        const todayStart = startOfDay();
-        return state.session.lastTapTime >= todayStart ? state.session.todayCount : 0;
-      },
-
+      getNextMilestone: () => get().totalCount < GOAL ? MILESTONES.find(m => get().totalCount < m.threshold) ?? null : null,
+      getUnlockedMilestones: () => MILESTONES.filter(m => get().unlockedMilestones.includes(m.threshold)),
+      getTodayCount: () => get().session.lastTapTime >= startOfDay() ? get().session.todayCount : 0,
       getTotalDisplay: () => formatNumber(get().totalCount),
+
+      // NEW FIX LOGIC
+      syncFromCloud: (total, milestones) => set({ totalCount: total, unlockedMilestones: milestones }),
+      clearUserData: () => set({
+        totalCount: 0,
+        unlockedMilestones: [],
+        hasSeenOnboarding: false, // Forces the next user to see the welcome screen!
+        userName: '',
+        session: { todayCount: 0, sessionStart: null, lastTapTime: 0 }
+      }),
     }),
     {
       name: "naam-jap-storage",
       version: 3,
-      onRehydrateStorage: () => (state) => {
-        state?.setHasHydrated();
-      },
+      onRehydrateStorage: () => (state) => { state?.setHasHydrated(); },
     }
   )
 );
