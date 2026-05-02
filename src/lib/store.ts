@@ -110,20 +110,27 @@ export const useNaamJapStore = create<NaamJapState>()(
         const state = get();
         const now = Date.now();
         const todayStart = startOfDay();
+        
+        // THE FIX: Check if the last tap happened BEFORE today's midnight
+        const isNewDay = state.session.lastTapTime < todayStart;
+
         set({
           totalCount: state.totalCount + amount,
           session: {
-            todayCount: now >= todayStart ? state.session.todayCount + amount : amount,
-            sessionStart: state.session.sessionStart ?? now,
+            // If it's a new day, start fresh with the new amount. Otherwise, add to today's count.
+            todayCount: isNewDay ? amount : state.session.todayCount + amount,
+            sessionStart: isNewDay ? now : (state.session.sessionStart ?? now),
             lastTapTime: now,
           },
         });
+        
         const newTotal = state.totalCount + amount;
         MILESTONES.forEach(m => {
           if (newTotal >= m.threshold && !state.unlockedMilestones.includes(m.threshold)) {
             get().unlockMilestone(m.threshold);
           }
         });
+
         if (typeof navigator !== "undefined" && "vibrate" in navigator) {
           if (state.hapticMode === "every_tap") navigator.vibrate(10);
           else if (state.hapticMode === "every_108" && (state.totalCount + amount) % 108 === 0) navigator.vibrate([20, 50, 20]);
@@ -133,9 +140,20 @@ export const useNaamJapStore = create<NaamJapState>()(
       addScannedCount: (count: number) => {
         if (count > 0) {
           const state = get();
+          const now = Date.now();
+          const todayStart = startOfDay();
+          
+          // THE FIX FOR SCANNER: Same check for scanned physical counts
+          const isNewDay = state.session.lastTapTime < todayStart;
+
           set({
             totalCount: state.totalCount + count,
-            session: { ...state.session, todayCount: state.session.todayCount + count, lastTapTime: Date.now() },
+            session: { 
+              ...state.session, 
+              todayCount: isNewDay ? count : state.session.todayCount + count, 
+              lastTapTime: now,
+              sessionStart: isNewDay ? now : (state.session.sessionStart ?? now)
+            },
           });
         }
       },
